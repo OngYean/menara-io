@@ -1,0 +1,127 @@
+[gd_scene format=3 uid="uid://cohqbighq3bmk"]
+
+[ext_resource type="Script" uid="uid://dwase38tw5mu7" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" uid="uid://ct3utwh15vtnq" path="res://scripts/player.gd" id="2_player"]
+[ext_resource type="Script" uid="uid://blhlylgigyke1" path="res://scripts/tower_camera.gd" id="3_camera"]
+
+[sub_resource type="Environment" id="Environment_ambient"]
+ambient_light_sky_contribution = 0.3
+
+[sub_resource type="Shader" id="Shader_tower_brick"]
+code = "shader_type spatial;
+render_mode cull_disabled;
+
+uniform vec4 brick_color : source_color = vec4(0.66, 0.28, 0.18, 1.0);
+uniform vec4 mortar_color : source_color = vec4(0.80, 0.77, 0.72, 1.0);
+uniform float brick_rows = 120.0;
+uniform float brick_columns = 80.0;
+uniform float mortar_thickness = 0.08;
+uniform float variation_strength = 0.12;
+
+void fragment() {
+	vec2 uv = UV;
+	float row = floor(uv.y * brick_rows);
+	float row_offset = mod(row, 2.0) * 0.5;
+
+	vec2 brick_uv = vec2(fract(uv.x * brick_columns + row_offset), fract(uv.y * brick_rows));
+
+	float x_mask = step(mortar_thickness, brick_uv.x) * step(mortar_thickness, 1.0 - brick_uv.x);
+	float y_mask = step(mortar_thickness, brick_uv.y) * step(mortar_thickness, 1.0 - brick_uv.y);
+	float brick_mask = x_mask * y_mask;
+
+	float variation = 1.0 - variation_strength + variation_strength * (0.5 + 0.5 * sin((row + floor(uv.x * brick_columns)) * 2.31));
+	vec3 color = mix(mortar_color.rgb, brick_color.rgb * variation, brick_mask);
+
+	ALBEDO = color;
+	ROUGHNESS = 0.92;
+	METALLIC = 0.0;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tower_brick"]
+render_priority = 0
+shader = SubResource("Shader_tower_brick")
+shader_parameter/brick_color = Color(0.66, 0.28, 0.18, 1)
+shader_parameter/mortar_color = Color(0.8, 0.77, 0.72, 1)
+shader_parameter/brick_rows = 120.0
+shader_parameter/brick_columns = 80.0
+shader_parameter/mortar_thickness = 0.08
+shader_parameter/variation_strength = 0.12
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_tower"]
+material = SubResource("ShaderMaterial_tower_brick")
+top_radius = 30.0
+bottom_radius = 30.0
+height = 120.0
+radial_segments = 128
+rings = 24
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.27, 0.26, 0.23, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_floor"]
+material = SubResource("StandardMaterial3D_floor")
+top_radius = 29.0
+bottom_radius = 29.0
+height = 1.0
+radial_segments = 96
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_floor"]
+height = 1.0
+radius = 29.0
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+height = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
+albedo_color = Color(0.2, 0.7, 0.95, 1)
+roughness = 0.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_player"]
+material = SubResource("StandardMaterial3D_player")
+height = 1.2
+
+[node name="Node3D" type="Node3D" unique_id=1535885166]
+script = ExtResource("1_game")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1249608251]
+environment = SubResource("Environment_ambient")
+
+[node name="Tower" type="MeshInstance3D" parent="." unique_id=231819248]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 60, 0)
+mesh = SubResource("CylinderMesh_tower")
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=797283985]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("CylinderMesh_floor")
+
+[node name="FloorBody" type="StaticBody3D" parent="." unique_id=1283166771]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody" unique_id=1990144755]
+shape = SubResource("CylinderShape3D_floor")
+
+[node name="Platforms" type="Node3D" parent="." unique_id=1629673943]
+
+[node name="Player" type="CharacterBody3D" parent="." unique_id=1715561106]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.983524, 2, 0)
+script = ExtResource("2_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=1129223447]
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Player" unique_id=1681300274]
+mesh = SubResource("CapsuleMesh_player")
+
+[node name="CameraPivot" type="Node3D" parent="." unique_id=1060393415]
+script = ExtResource("3_camera")
+player_path = NodePath("../Player")
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot" unique_id=316433464]
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=14389089]
+transform = Transform3D(0.7648422, -0.46213347, 0.44883078, 0, 0.6967067, 0.7173561, -0.64421767, -0.5486642, 0.5328707, 0, 110, 0)
+light_energy = 2.2

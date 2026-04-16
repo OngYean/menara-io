@@ -1,0 +1,38 @@
+[gd_scene format=3 uid="uid://cgahfto77a6q1"]
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_xk0ue"]
+[ext_resource type="LabelSettings" uid="uid://cw8axju3ncmhf" path="res://ui/styles/title_label_settings.tres" id="1_l6cm7"]
+
+[node name="Control" type="Control" unique_id=1303100064]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_xk0ue")
+
+[node name="Label" type="Label" parent="." unique_id=382514223]
+layout_mode = 0
+offset_left = 281.0
+offset_top = 77.0
+offset_right = 907.0
+offset_bottom = 252.0
+text = "Menara.io"
+label_settings = ExtResource("1_l6cm7")
+
+[node name="TextEdit" type="TextEdit" parent="." unique_id=1662151884]
+layout_mode = 0
+offset_left = 421.0
+offset_top = 294.0
+offset_right = 776.0
+offset_bottom = 359.0
+placeholder_text = "Enter your name..."
+
+[node name="Button" type="Button" parent="." unique_id=453123915]
+layout_mode = 0
+offset_left = 520.0
+offset_top = 424.0
+offset_right = 665.0
+offset_bottom = 492.0
+text = "Start"
