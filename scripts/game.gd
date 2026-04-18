@@ -26,7 +26,7 @@ var camera_shake_intensity: float = 0.0
 ## Troll settings
 @export var troll_start_time: float = 30.0
 @export var troll_interval: float = 15.0
-@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_raining_cats_and_dogs.gd")
+@export var forced_first_troll: GDScript = null
 
 var _generator: Node3D
 var _player1: Node3D
@@ -68,6 +68,7 @@ var _p1_pointer: Polygon2D
 var _p2_pointer: Polygon2D
 
 var _game_over_ui: VBoxContainer
+var _pause_ui: VBoxContainer
 
 ## UI State
 var _elapsed_time: float = 0.0
@@ -152,6 +153,20 @@ func _ready() -> void:
 		_generator.generate_initial(start_y, start_y + 20.0)
 
 	_lava_y = lava_start_y
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and not _game_over:
+		toggle_pause()
+
+func toggle_pause() -> void:
+	var new_pause_state = not get_tree().paused
+	get_tree().paused = new_pause_state
+	_pause_ui.visible = new_pause_state
+	
+	if new_pause_state:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _process(delta: float) -> void:
 	if _game_over:
@@ -291,6 +306,7 @@ func _load_trolls() -> void:
 			file_name = dir.get_next()
 
 func _trigger_next_troll() -> void:
+	# Ensure clean slate
 	if _current_troll:
 		_current_troll.end()
 		_current_troll.queue_free()
@@ -761,6 +777,52 @@ func _setup_screen() -> void:
 	_troll_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_troll_label.add_theme_constant_override("outline_size", 8)
 	canvas.add_child(_troll_label)
+
+	## --- Pause UI ---
+	_pause_ui = VBoxContainer.new()
+	_pause_ui.process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	_pause_ui.anchor_left = 0.5
+	_pause_ui.anchor_right = 0.5
+	_pause_ui.anchor_top = 0.5
+	_pause_ui.anchor_bottom = 0.5
+	_pause_ui.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_pause_ui.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_pause_ui.add_theme_constant_override("separation", 20)
+	_pause_ui.visible = false
+	canvas.add_child(_pause_ui)
+
+	var pause_title := Label.new()
+	pause_title.text = "PAUSED"
+	pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pause_title.add_theme_font_size_override("font_size", 64)
+	pause_title.add_theme_color_override("font_color", Color.WHITE)
+	pause_title.add_theme_constant_override("outline_size", 8)
+	pause_title.add_theme_color_override("font_outline_color", Color.BLACK)
+	_pause_ui.add_child(pause_title)
+
+	var resume_btn := Button.new()
+	resume_btn.text = "RESUME GAME"
+	resume_btn.custom_minimum_size = Vector2(250, 60)
+	resume_btn.pressed.connect(toggle_pause)
+	_pause_ui.add_child(resume_btn)
+
+	var pause_restart_btn := Button.new()
+	pause_restart_btn.text = "RESTART"
+	pause_restart_btn.custom_minimum_size = Vector2(250, 60)
+	pause_restart_btn.pressed.connect(func(): 
+		get_tree().paused = false
+		get_tree().reload_current_scene()
+	)
+	_pause_ui.add_child(pause_restart_btn)
+
+	var pause_menu_btn := Button.new()
+	pause_menu_btn.text = "MAIN MENU"
+	pause_menu_btn.custom_minimum_size = Vector2(250, 60)
+	pause_menu_btn.pressed.connect(func(): 
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	)
+	_pause_ui.add_child(pause_menu_btn)
 
 	## Lava distance labels
 	_p1_dist_label = Label.new()

@@ -94,13 +94,14 @@ K : Plunge"
 [node name="HSeparator2" type="HSeparator" parent="VBoxContainer"]
 layout_mode = 2
 
-[node name="Tips" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
-text = "• Plunge onto opponents to stun them
-• Grab icons for FLY and DOUBLE JUMP
-• Watch out for 'Troll' events!"
-horizontal_alignment = 1
+	[node name="Tips" type="Label" parent="VBoxContainer"]
+	layout_mode = 2
+	theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+	text = "• ESC: Pause Game | S/K: Plunge onto opponents to stun them
+• FLASHBANG: Blinds the opponent's screen
+• GRACE PERIOD: No stuns or flashbangs until the lava rises!
+• Grab icons for FLY, DOUBLE JUMP, and more!"
+	horizontal_alignment = 1
 
 [node name="BackButton" type="Button" parent="."]
 layout_mode = 1
