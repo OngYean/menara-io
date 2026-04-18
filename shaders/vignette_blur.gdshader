@@ -11,7 +11,7 @@ void fragment() {
 	float blur_strength = smoothstep(vignette_radius, 0.5, dist) * blur_amount;
 	
 	if (blur_strength < 0.01) {
-		COLOR = texture(screen_texture, SCREEN_UV);
+		discard;
 	} else {
 		vec3 col = vec3(0.0);
 		float count = 0.0;

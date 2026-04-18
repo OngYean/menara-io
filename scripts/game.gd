@@ -26,7 +26,7 @@ var camera_shake_intensity: float = 0.0
 ## Troll settings
 @export var troll_start_time: float = 30.0
 @export var troll_interval: float = 15.0
-@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_wind.gd")
+@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_moon_walking.gd")
 
 var _generator: Node3D
 var _player1: Node3D
@@ -45,6 +45,8 @@ var _p1_blur: ColorRect
 var _p2_blur: ColorRect
 var _p1_clouds: ColorRect
 var _p2_clouds: ColorRect
+var _p1_film: ColorRect
+var _p2_film: ColorRect
 
 ## UI State
 var _elapsed_time: float = 0.0
@@ -444,6 +446,9 @@ func _setup_screen() -> void:
 	
 	_p1_clouds = _create_cloud_overlay()
 	left_vp.add_child(_p1_clouds)
+	
+	_p1_film = _create_film_overlay()
+	left_vp.add_child(_p1_film)
 
 	if is_duo:
 		## --- Right half (Player 2) ---
@@ -476,6 +481,9 @@ func _setup_screen() -> void:
 		
 		_p2_clouds = _create_cloud_overlay()
 		right_vp.add_child(_p2_clouds)
+		
+		_p2_film = _create_film_overlay()
+		right_vp.add_child(_p2_film)
 
 	## --- UI Overlay (added last so it renders on top) ---
 	if is_duo:
@@ -624,5 +632,14 @@ func _create_cloud_overlay() -> ColorRect:
 	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var mat := ShaderMaterial.new()
 	mat.shader = preload("res://shaders/cloud_filter.gdshader")
+	cr.material = mat
+	return cr
+
+func _create_film_overlay() -> ColorRect:
+	var cr := ColorRect.new()
+	cr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/moonlanding_film.gdshader")
 	cr.material = mat
 	return cr

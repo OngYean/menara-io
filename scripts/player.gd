@@ -24,6 +24,7 @@ extends CharacterBody3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var fall_disabled: bool = false
 var wind_force: float = 0.0
+var acceleration_scale: float = 1.0
 
 func _ready() -> void:
 	_ensure_input_actions()
@@ -50,8 +51,8 @@ func _physics_process(delta: float) -> void:
 
 	var target_xz := tangent_dir * (turn_input * move_speed + wind_force)
 
-	velocity.x = move_toward(velocity.x, target_xz.x, acceleration * delta)
-	velocity.z = move_toward(velocity.z, target_xz.z, acceleration * delta)
+	velocity.x = move_toward(velocity.x, target_xz.x, acceleration * acceleration_scale * delta)
+	velocity.z = move_toward(velocity.z, target_xz.z, acceleration * acceleration_scale * delta)
 
 	move_and_slide()
 	_clamp_inside_tower()
