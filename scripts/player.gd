@@ -17,6 +17,16 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
+		if Input.is_action_pressed("fall"):
+			velocity.y -= 120.0 * delta
+	
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = jump_velocity
+		if Input.is_action_pressed("fall"):
+			velocity.y -= 5.0 * delta # Increase downward speed when 'fall' is held
+	
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = jump_velocity
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = jump_velocity
@@ -56,7 +66,8 @@ func _ensure_input_actions() -> void:
 
 	_add_action_key_if_missing("move_left", KEY_A)
 	_add_action_key_if_missing("move_right", KEY_D)
-	_add_action_key_if_missing("jump", KEY_SPACE)
+	_add_action_key_if_missing("jump", KEY_W)
+	_add_action_key_if_missing("fall", KEY_S)
 
 func _add_action_key_if_missing(action_name: StringName, keycode: Key) -> void:
 	if not InputMap.has_action(action_name):
