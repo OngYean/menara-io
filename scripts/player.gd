@@ -239,6 +239,8 @@ func _setup_scotty_model() -> void:
 	_anim_player = _find_node_by_type(_model, "AnimationPlayer") as AnimationPlayer
 	if _anim_player:
 		_anim_player.active = true
+		if _anim_player.has_animation("ArmatureAction"):
+			_anim_player.get_animation("ArmatureAction").loop_mode = Animation.LOOP_LINEAR
 	
 	## Apply player color to the "Bois" (body) material on all mesh instances.
 	_apply_color_to_model(_model, player_color)
