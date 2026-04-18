@@ -55,6 +55,9 @@ var _p1_fly_label: Label
 var _p2_fly_ui: HBoxContainer
 var _p2_fly_label: Label
 
+var _p1_pointer: Polygon2D
+var _p2_pointer: Polygon2D
+
 ## UI State
 var _elapsed_time: float = 0.0
 var _is_duo: bool = false
@@ -199,6 +202,13 @@ func _process(delta: float) -> void:
 			_p2_fly_label.text = "%.1f" % _player2.fly_timer
 		else:
 			_p2_fly_ui.visible = false
+
+	if _is_duo and _p1_alive and _p2_alive and _player1 and _player2:
+		var left_cont = get_node_or_null("ScreenCanvas/LeftView") as Control
+		var right_cont = get_node_or_null("ScreenCanvas/RightView") as Control
+		if left_cont and right_cont:
+			_update_player_pointer(_cam1, _player2, _p1_pointer, left_cont.size)
+			_update_player_pointer(_cam2, _player1, _p2_pointer, right_cont.size)
 
 	## --- Troll Logic ------------------------------------------------------
 	if _elapsed_time >= _next_troll_time and not _game_over:
@@ -505,6 +515,11 @@ func _setup_screen() -> void:
 	left_container.add_child(_p1_fly_ui)
 
 	if _is_duo:
+		_p1_pointer = Polygon2D.new()
+		_p1_pointer.polygon = PackedVector2Array([Vector2(-12, -10), Vector2(16, 0), Vector2(-12, 10)])
+		_p1_pointer.color = Color(0.95, 0.45, 0.15, 1.0) # Player 2's color (Orange)
+		left_container.add_child(_p1_pointer)
+
 		## --- Right half (Player 2) ---
 		var right_container := SubViewportContainer.new()
 		right_container.name = "RightView"
@@ -550,6 +565,11 @@ func _setup_screen() -> void:
 		_p2_fly_ui.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 		_p2_fly_ui.position = Vector2(-150, 120)
 		right_container.add_child(_p2_fly_ui)
+
+		_p2_pointer = Polygon2D.new()
+		_p2_pointer.polygon = PackedVector2Array([Vector2(-12, -10), Vector2(16, 0), Vector2(-12, 10)])
+		_p2_pointer.color = Color(0.2, 0.7, 0.95, 1.0) # Player 1's color (Blue)
+		right_container.add_child(_p2_pointer)
 
 	## --- UI Overlay (added last so it renders on top) ---
 	if _is_duo:
@@ -759,3 +779,40 @@ func _create_fly_ui() -> HBoxContainer:
 	hb.add_child(label)
 	
 	return hb
+
+func _update_player_pointer(cam: Camera3D, target: Node3D, pointer: Polygon2D, vp_size: Vector2) -> void:
+	if not cam or not target or not pointer: return
+	
+	var target_pos = target.global_position
+	var is_behind = cam.is_position_behind(target_pos)
+	var screen_pos = cam.unproject_position(target_pos)
+	
+	var center = vp_size * 0.5
+	var dir = (screen_pos - center).normalized()
+	if is_behind:
+		dir = -dir
+		screen_pos = center + dir * 10000.0
+		
+	var margin = 30.0
+	
+	var clamped_pos = center
+	if abs(dir.x) > 0.001:
+		var t_x = ((vp_size.x - margin if dir.x > 0 else margin) - center.x) / dir.x
+		clamped_pos = center + dir * t_x
+		
+	if clamped_pos.y < margin or clamped_pos.y > vp_size.y - margin:
+		if abs(dir.y) > 0.001:
+			var t_y = ((vp_size.y - margin if dir.y > 0 else margin) - center.y) / dir.y
+			clamped_pos = center + dir * t_y
+			
+	var is_on_screen = not is_behind and screen_pos.x >= margin and screen_pos.x <= vp_size.x - margin and screen_pos.y >= margin and screen_pos.y <= vp_size.y - margin
+	
+	if is_on_screen:
+		pointer.position = screen_pos
+		pointer.rotation = dir.angle()
+		# Add a subtle hover offset above the player so it doesn't cover them entirely
+		pointer.position.y -= 40.0
+		pointer.rotation = PI/2 # Point straight down
+	else:
+		pointer.position = clamped_pos
+		pointer.rotation = dir.angle()
