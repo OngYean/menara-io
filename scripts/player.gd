@@ -1,12 +1,13 @@
 extends CharacterBody3D
 
-@export var move_speed: float = 10.0
-@export var radial_speed: float = 7.0
-@export var acceleration: float = 20.0
-@export var jump_velocity: float = 9.0
+@export var move_speed: float = 28.0
+@export var acceleration: float = 90.0
+@export var jump_velocity: float = 18.0
 @export var tower_center: Vector3 = Vector3.ZERO
-@export var min_radius: float = 6.0
-@export var max_radius: float = 28.0
+## The player is always clamped to this radius – must match the platform inner edge.
+@export var wall_radius: float = 27.0
+## Multiplier on top of the project gravity – higher = snappier falls.
+@export var gravity_scale: float = 2.2
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
@@ -15,14 +16,15 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
-		velocity.y -= _gravity * delta
+		velocity.y -= _gravity * gravity_scale * delta
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = jump_velocity
 
 	var turn_input: float = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
-	var vertical_input: float = Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
 
+	## Tangent direction: perpendicular to the outward radial, so the player
+	## always runs along the tower wall rather than toward/away from the centre.
 	var radial_dir := Vector3(global_position.x - tower_center.x, 0.0, global_position.z - tower_center.z)
 	if radial_dir.length_squared() < 0.0001:
 		radial_dir = Vector3.FORWARD
@@ -30,33 +32,28 @@ func _physics_process(delta: float) -> void:
 		radial_dir = radial_dir.normalized()
 	var tangent_dir := Vector3(-radial_dir.z, 0.0, radial_dir.x)
 
-	var target_xz := Vector3.ZERO
-	target_xz += tangent_dir * turn_input * move_speed
+	var target_xz := tangent_dir * turn_input * move_speed
 
 	velocity.x = move_toward(velocity.x, target_xz.x, acceleration * delta)
 	velocity.z = move_toward(velocity.z, target_xz.z, acceleration * delta)
-	velocity.y += vertical_input * radial_speed
 
 	move_and_slide()
 	_clamp_inside_tower()
 
 func _clamp_inside_tower() -> void:
+	## Pin the player to wall_radius so they are always at a consistent distance
+	## from the tower centre (and therefore from the camera).
 	var radial := Vector2(global_position.x - tower_center.x, global_position.z - tower_center.z)
-	var radius := radial.length()
-	if radius <= max_radius and radius >= min_radius:
-		return
-
-	if radius < 0.0001:
-		radial = Vector2(0.0, min_radius)
+	if radial.length_squared() < 0.0001:
+		radial = Vector2(0.0, wall_radius)
 	else:
-		radial = radial.normalized() * clamp(radius, min_radius, max_radius)
+		radial = radial.normalized() * wall_radius
 
 	global_position.x = tower_center.x + radial.x
 	global_position.z = tower_center.z + radial.y
 
 func _ensure_input_actions() -> void:
-	_add_action_key_if_missing("move_forward", KEY_W)
-	_add_action_key_if_missing("move_backward", KEY_S)
+
 	_add_action_key_if_missing("move_left", KEY_A)
 	_add_action_key_if_missing("move_right", KEY_D)
 	_add_action_key_if_missing("jump", KEY_SPACE)

@@ -1,188 +1,177 @@
 extends Node3D
-class_name PlatformGenerator
 
-## Tower's fixed radius (player moves on circumference at this distance from center)
 @export var tower_radius: float = 30.0
-
-## Minimum arc length in degrees for a platform
-@export var min_spin_degrees: float = 15.0
-
-## Maximum arc length in degrees for a platform
-@export var max_spin_degrees: float = 45.0
-
-## Minimum vertical distance between platforms
-@export var min_height_interval: float = 4.0
-
-## Maximum vertical distance between platforms
-@export var max_height_interval: float = 8.0
-
-## Radial depth of each platform (how far from inner wall to outer wall)
+@export var min_spin_degrees: float = 20.0
+@export var max_spin_degrees: float = 65.0
 @export var platform_depth: float = 3.0
-
-## Vertical thickness of each platform (how tall it is on the Y axis)
 @export var platform_thickness: float = 1.0
 
-## Total number of platforms to generate
-@export var total_platforms: int = 50
+## Height gap between consecutive platforms.
+## With jump_velocity 18 and gravity_scale 2.2 the max jump height ≈ 7.5 units.
+## Keep max well under that so every platform is reachable.
+@export var min_height_interval: float = 4.0
+@export var max_height_interval: float = 6.0
 
-var _platform_material: StandardMaterial3D
+## Number of platforms to spawn around the tower at each height level.
+@export var min_platforms_per_level: int = 2
+@export var max_platforms_per_level: int = 4
 
+## How far ahead of the player (in Y units) to keep platforms generated.
+@export var generation_lead: float = 80.0
 
-func _ready() -> void:
-	_platform_material = StandardMaterial3D.new()
-	_platform_material.albedo_color = Color(0.24, 0.29, 0.36)
-	_platform_material.roughness = 0.8
-	_platform_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	
-	generate_platforms()
+## How far below the player old platforms are culled.
+@export var cull_distance: float = 40.0
 
+## Internal state ----------------------------------------------------------
+var _next_y: float = 0.0
+var _platform_index: int = 0
+var _generated_up_to_y: float = 0.0
 
-func generate_platforms() -> void:
-	## Clear any existing platforms
+## -------------------------------------------------------------------------
+## Public API
+## -------------------------------------------------------------------------
+
+## Called once to seed the initial batch of platforms.
+## start_y  : the Y the player is standing on (floor level).
+## viewport_top : highest Y visible in the starting camera frame.
+func generate_initial(start_y: float, viewport_top: float) -> void:
+	## Clear leftovers from a previous run (editor re-entry, etc.)
 	for child in get_children():
 		child.queue_free()
 
-	randomize()
-	var current_y: float = 0.0
-	
-	for i in range(total_platforms):
-		## Random vertical spacing between platforms
-		current_y += randf_range(min_height_interval, max_height_interval)
-		
-		## Constraint 1: Cylindrical Coordinates for Placement
-		## Generate random angle theta (0 to TAU)
-		var theta: float = randf() * TAU
-		
-		## Convert cylindrical to Cartesian coordinates
-		var x: float = tower_radius * cos(theta)
-		var z: float = tower_radius * sin(theta)
-		var y: float = current_y
-		
-		## Create platform root node at this position
-		var platform_root := Node3D.new()
-		platform_root.position = Vector3(x, y, z)
-		platform_root.name = "Platform_%d" % i
-		add_child(platform_root)
-		
-		## Constraint 2: Orientation - Platform faces the center of the tower
-		## look_at() makes the platform "face" the tower center
-		var tower_center := Vector3(0, y, 0)
-		platform_root.look_at(tower_center, Vector3.UP)
-		
-		## Constraint 3: Shape Generation using procedural mesh with SurfaceTool
-		## This ensures all faces are rendered (top, bottom, inner, outer, and end caps)
-		
-		## Random platform arc length in degrees
-		var spin_degrees: float = randf_range(min_spin_degrees, max_spin_degrees)
-		var spin_radians: float = deg_to_rad(spin_degrees)
-		
-		## Calculate inner and outer radii for the platform's cross-section
-		var inner_radius: float = tower_radius - platform_depth
-		var outer_radius: float = tower_radius
-		
-		## Generate the mesh using SurfaceTool with full control over all faces
-		var mesh := _create_spun_platform_mesh(spin_radians, inner_radius, outer_radius)
-		
-		var mesh_instance := MeshInstance3D.new()
-		mesh_instance.mesh = mesh
-		mesh_instance.material_override = _platform_material
-		platform_root.add_child(mesh_instance)
-		
-		## Add collision shape using the generated mesh
-		var collision_shape := CollisionShape3D.new()
-		var concave_shape := ConcavePolygonShape3D.new()
-		concave_shape.set_faces(mesh.get_faces())
-		collision_shape.shape = concave_shape
-		platform_root.add_child(collision_shape)
+	_platform_index = 0
+	_next_y = start_y + min_height_interval
 
+	## Always generate enough platforms to fill the opening viewport PLUS the
+	## normal generation lead so the world feels populated from the start.
+	var target_y := maxf(viewport_top, start_y) + generation_lead
+	_generate_up_to(target_y)
+
+## Extend the world upward so there are always platforms ahead of the player.
+func extend_to(player_y: float) -> void:
+	var target_y := player_y + generation_lead
+	if target_y > _generated_up_to_y:
+		_generate_up_to(target_y)
+
+## Remove platforms that are far below the player to save memory.
+func cull_below(player_y: float) -> void:
+	var threshold := player_y - cull_distance
+	for child in get_children():
+		if child is StaticBody3D and child.position.y < threshold:
+			child.queue_free()
+
+## -------------------------------------------------------------------------
+## Internal generation
+## -------------------------------------------------------------------------
+
+func _generate_up_to(target_y: float) -> void:
+	while _next_y < target_y:
+		var platforms_this_level := randi_range(min_platforms_per_level, max_platforms_per_level)
+		var angle_offset := randf() * TAU
+		
+		for i in range(platforms_this_level):
+			var base_angle := (float(i) / float(platforms_this_level)) * TAU
+			var angle := fmod(base_angle + angle_offset + randf_range(-0.2, 0.2), TAU)
+			var y_jitter := randf_range(-0.5, 0.5)
+			_spawn_platform_at(_next_y + y_jitter, angle)
+
+		_next_y += randf_range(min_height_interval, max_height_interval)
+
+	_generated_up_to_y = _next_y
+
+func _spawn_platform_at(y: float, theta: float) -> void:
+	var platform_root := StaticBody3D.new()
+	platform_root.position = Vector3(0, y, 0)
+	platform_root.rotation.y = theta
+	platform_root.name = "Platform_%d" % _platform_index
+	_platform_index += 1
+	add_child(platform_root)
+
+	var spin_degrees: float = randf_range(min_spin_degrees, max_spin_degrees)
+	var spin_radians: float = deg_to_rad(spin_degrees)
+	var inner_radius: float = tower_radius - platform_depth
+
+	var mesh := _create_spun_platform_mesh(spin_radians, inner_radius, tower_radius)
+
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.mesh = mesh
+	platform_root.add_child(mesh_instance)
+
+	## Solid convex collision hull.
+	var collision_shape := CollisionShape3D.new()
+	var convex_shape := ConvexPolygonShape3D.new()
+	convex_shape.points = mesh.get_faces()
+	collision_shape.shape = convex_shape
+	platform_root.add_child(collision_shape)
+
+## -------------------------------------------------------------------------
+## Mesh helpers (unchanged)
+## -------------------------------------------------------------------------
 
 func _create_spun_platform_mesh(spin_radians: float, inner_radius: float, outer_radius: float) -> Mesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	
+
 	var half_spin: float = spin_radians * 0.5
-	var angular_steps: int = max(8, int(spin_radians * 15.0))  ## More detail for better rendering
-	
-	## Build vertices array: [angle_step][height_level][radius_level]
-	## height_level: 0=bottom, 1=top
-	## radius_level: 0=inner, 1=outer
-	var verts: Array = []
-	
-	for angle_idx in range(angular_steps + 1):
-		var angle = lerpf(-half_spin, half_spin, float(angle_idx) / float(angular_steps))
-		verts.append([])
+	## Ensure enough angular steps for a smooth curve along the wall
+	var angular_steps: int = max(8, int(spin_radians * 15.0))
+
+	for i in range(angular_steps):
+		var angle_a = lerpf(-half_spin, half_spin, float(i) / float(angular_steps))
+		var angle_b = lerpf(-half_spin, half_spin, float(i + 1) / float(angular_steps))
+
+		## Vertices for Angle A (Start of the current segment)
+		var ia_b = Vector3(inner_radius * cos(angle_a), 0, inner_radius * sin(angle_a))
+		var oa_b = Vector3(outer_radius * cos(angle_a), 0, outer_radius * sin(angle_a))
+		var ia_t = Vector3(inner_radius * cos(angle_a), platform_thickness, inner_radius * sin(angle_a))
+		var oa_t = Vector3(outer_radius * cos(angle_a), platform_thickness, outer_radius * sin(angle_a))
+
+		## Vertices for Angle B (End of the current segment)
+		var ib_b = Vector3(inner_radius * cos(angle_b), 0, inner_radius * sin(angle_b))
+		var ob_b = Vector3(outer_radius * cos(angle_b), 0, outer_radius * sin(angle_b))
+		var ib_t = Vector3(inner_radius * cos(angle_b), platform_thickness, inner_radius * sin(angle_b))
+		var ob_t = Vector3(outer_radius * cos(angle_b), platform_thickness, outer_radius * sin(angle_b))
+
+		## Top Face (Normal forced UP)
+		_add_quad(st, oa_t, ob_t, ib_t, ia_t, Vector3.UP)
 		
-		for height in range(2):
-			verts[angle_idx].append([])
-			var y = float(height) * platform_thickness
-			
-			for radial in range(2):
-				var r = lerpf(inner_radius, outer_radius, float(radial))
-				var x = r * cos(angle)
-				var z = r * sin(angle)
-				verts[angle_idx][height].append(Vector3(x, y, z))
-	
-	## Top face (height=1)
-	for i in range(angular_steps):
-		var a = verts[i]
-		var b = verts[i + 1]
-		st.add_vertex(a[1][0])
-		st.add_vertex(b[1][0])
-		st.add_vertex(b[1][1])
-		st.add_vertex(a[1][0])
-		st.add_vertex(b[1][1])
-		st.add_vertex(a[1][1])
-	
-	## Bottom face (height=0)
-	for i in range(angular_steps):
-		var a = verts[i]
-		var b = verts[i + 1]
-		st.add_vertex(a[0][0])
-		st.add_vertex(a[0][1])
-		st.add_vertex(b[0][1])
-		st.add_vertex(a[0][0])
-		st.add_vertex(b[0][1])
-		st.add_vertex(b[0][0])
-	
-	## Outer surface (radial=1)
-	for i in range(angular_steps):
-		var a = verts[i]
-		var b = verts[i + 1]
-		st.add_vertex(a[0][1])
-		st.add_vertex(a[1][1])
-		st.add_vertex(b[1][1])
-		st.add_vertex(a[0][1])
-		st.add_vertex(b[1][1])
-		st.add_vertex(b[0][1])
-	
-	## Inner surface (radial=0)
-	for i in range(angular_steps):
-		var a = verts[i]
-		var b = verts[i + 1]
-		st.add_vertex(a[0][0])
-		st.add_vertex(b[1][0])
-		st.add_vertex(a[1][0])
-		st.add_vertex(a[0][0])
-		st.add_vertex(b[0][0])
-		st.add_vertex(b[1][0])
-	
-	## Start cap (angle=-half_spin)
-	var start = verts[0]
-	st.add_vertex(start[0][0])
-	st.add_vertex(start[0][1])
-	st.add_vertex(start[1][1])
-	st.add_vertex(start[0][0])
-	st.add_vertex(start[1][1])
-	st.add_vertex(start[1][0])
-	
-	## End cap (angle=+half_spin)
-	var end = verts[angular_steps]
-	st.add_vertex(end[0][0])
-	st.add_vertex(end[1][1])
-	st.add_vertex(end[0][1])
-	st.add_vertex(end[0][0])
-	st.add_vertex(end[1][0])
-	st.add_vertex(end[1][1])
-	
-	st.generate_normals()
+		## Bottom Face (Normal forced DOWN)
+		_add_quad(st, oa_b, ia_b, ib_b, ob_b, Vector3.DOWN)
+		
+		## Outer Face (Calculates outward normal automatically)
+		_add_quad(st, oa_b, ob_b, ob_t, oa_t)
+		
+		## Inner Face (Calculates inward normal automatically)
+		_add_quad(st, ia_b, ia_t, ib_t, ib_b)
+
+		## Start Cap (Only generated on the very first step of the arc)
+		if i == 0:
+			_add_quad(st, oa_b, ia_b, ia_t, oa_t)
+		
+		## End Cap (Only generated on the very last step of the arc)
+		if i == angular_steps - 1:
+			_add_quad(st, ib_b, ob_b, ob_t, ib_t)
+
 	return st.commit()
+
+## Helper function to guarantee perfect CCW quads with flat normals
+func _add_quad(st: SurfaceTool, p1: Vector3, p2: Vector3, p3: Vector3, p4: Vector3, normal: Vector3 = Vector3.ZERO):
+	if normal == Vector3.ZERO:
+		## Cross product to calculate a perfectly flat normal for the face
+		normal = (p2 - p1).cross(p3 - p1).normalized()
+	
+	## Triangle 1
+	st.set_normal(normal)
+	st.add_vertex(p1)
+	st.set_normal(normal)
+	st.add_vertex(p2)
+	st.set_normal(normal)
+	st.add_vertex(p3)
+
+	## Triangle 2
+	st.set_normal(normal)
+	st.add_vertex(p1)
+	st.set_normal(normal)
+	st.add_vertex(p3)
+	st.set_normal(normal)
+	st.add_vertex(p4)

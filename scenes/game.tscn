@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dwase38tw5mu7" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://ct3utwh15vtnq" path="res://scripts/player.gd" id="2_player"]
 [ext_resource type="Script" uid="uid://blhlylgigyke1" path="res://scripts/tower_camera.gd" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/platform_generator.gd" id="4_platform_gen"]
 
 [sub_resource type="Environment" id="Environment_ambient"]
 ambient_light_sky_contribution = 0.3
@@ -104,6 +105,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("CylinderShape3D_floor")
 
 [node name="Platforms" type="Node3D" parent="." unique_id=1629673943]
+script = ExtResource("4_platform_gen")
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=1715561106]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.983524, 2, 0)
