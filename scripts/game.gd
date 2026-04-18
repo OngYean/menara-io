@@ -14,6 +14,7 @@ extends Node3D
 ## Camera settings (same as tower_camera.gd, inlined for SubViewport cameras).
 @export var camera_distance: float = 35.0
 @export var camera_smoothing: float = 12.0
+var camera_shake_intensity: float = 0.0
 
 ## Lava settings.
 @export var grace_period: float = 15.0
@@ -25,6 +26,7 @@ extends Node3D
 ## Troll settings
 @export var troll_start_time: float = 30.0
 @export var troll_interval: float = 15.0
+@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_short_sightedness.gd")
 
 var _generator: Node3D
 var _player1: Node3D
@@ -70,7 +72,7 @@ func _ready() -> void:
 	_player1 = get_node_or_null(player1_path) as Node3D
 	_player2 = get_node_or_null(player2_path) as Node3D
 	
-	if Global.game_mode == "singleplayer":
+	if get_node("/root/Global").game_mode == "singleplayer":
 		if _player2:
 			_player2.queue_free()
 			_player2 = null
@@ -214,11 +216,15 @@ func _trigger_next_troll() -> void:
 	if _troll_classes.is_empty():
 		return
 		
-	var pool := _troll_classes.duplicate()
-	if _last_troll_script and pool.size() > 1:
-		pool.erase(_last_troll_script)
+	var script: GDScript
+	if _last_troll_script == null and forced_first_troll != null:
+		script = forced_first_troll
+	else:
+		var pool := _troll_classes.duplicate()
+		if _last_troll_script and pool.size() > 1:
+			pool.erase(_last_troll_script)
+		script = pool.pick_random() as GDScript
 		
-	var script := pool.pick_random() as GDScript
 	_last_troll_script = script
 	var troll := script.new() as TrollBase
 	if troll:
@@ -272,7 +278,7 @@ func _check_lava_kills() -> void:
 		_kill_player(2)
 
 func _kill_player(player_index: int) -> void:
-	if Global.game_mode == "singleplayer":
+	if get_node("/root/Global").game_mode == "singleplayer":
 		_p1_alive = false
 		if _player1:
 			_player1.set_physics_process(false)
@@ -402,7 +408,7 @@ func _setup_screen() -> void:
 	canvas.name = "ScreenCanvas"
 	add_child(canvas)
 	
-	var is_duo = Global.game_mode == "duo"
+	var is_duo = get_node("/root/Global").game_mode == "duo"
 
 	## --- Left half (Player 1) or Full Screen ---
 	var left_container := SubViewportContainer.new()
@@ -579,3 +585,10 @@ func _update_camera(cam: Camera3D, player: Node3D, delta: float) -> void:
 	var desired := _get_desired_cam_pos(player)
 	cam.global_position = cam.global_position.lerp(desired, clamp(camera_smoothing * delta, 0.0, 1.0))
 	cam.look_at(player.global_position, Vector3.UP)
+	
+	if camera_shake_intensity > 0.0:
+		cam.h_offset = randf_range(-0.5, 0.5) * camera_shake_intensity
+		cam.v_offset = randf_range(-0.5, 0.5) * camera_shake_intensity
+	else:
+		cam.h_offset = 0.0
+		cam.v_offset = 0.0

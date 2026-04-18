@@ -55,6 +55,14 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_clamp_inside_tower()
 
+	if is_on_floor():
+		for i in get_slide_collision_count():
+			var col = get_slide_collision(i)
+			if col.get_normal().y > 0.5:
+				var collider = col.get_collider()
+				if collider and collider.has_method("on_stepped"):
+					collider.on_stepped()
+
 func _clamp_inside_tower() -> void:
 	## Pin the player to wall_radius so they are always at a consistent distance
 	## from the tower centre (and therefore from the camera).

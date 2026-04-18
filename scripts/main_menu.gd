@@ -8,11 +8,11 @@ func _ready() -> void:
 	_duo_button.pressed.connect(_on_duo_pressed)
 
 func _on_singleplayer_pressed() -> void:
-	Global.game_mode = "singleplayer"
+	get_node("/root/Global").game_mode = "singleplayer"
 	_start_game()
 
 func _on_duo_pressed() -> void:
-	Global.game_mode = "duo"
+	get_node("/root/Global").game_mode = "duo"
 	_start_game()
 
 func _start_game() -> void:

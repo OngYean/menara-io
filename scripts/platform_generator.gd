@@ -131,6 +131,7 @@ func _generate_up_to(target_y: float) -> void:
 
 func _spawn_platform_at(y: float, theta: float, spin_radians: float) -> void:
 	var platform_root := StaticBody3D.new()
+	platform_root.set_script(load("res://scripts/platform.gd"))
 	platform_root.position = Vector3(0, y, 0)
 	platform_root.rotation.y = theta
 	platform_root.name = "Platform_%d" % _platform_index
