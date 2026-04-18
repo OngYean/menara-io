@@ -17,10 +17,14 @@ extends Node3D
 
 ## Lava settings.
 @export var grace_period: float = 15.0
-@export var lava_rise_speed: float = 6.0
+@export var lava_rise_speed: float = 4.0
 @export var lava_start_y: float = -10.0
 @export var lava_radius: float = 29.5
 @export var lava_column_height: float = 400.0
+
+## Troll settings
+@export var troll_start_time: float = 30.0
+@export var troll_interval: float = 15.0
 
 var _generator: Node3D
 var _player1: Node3D
@@ -41,6 +45,8 @@ var _elapsed_time: float = 0.0
 var _timer_label: Label
 var _winner_label: Label
 var _grace_label: Label
+var _p1_dist_label: Label
+var _p2_dist_label: Label
 
 ## Lava state
 var _lava_mesh: MeshInstance3D
@@ -49,6 +55,12 @@ var _lava_active: bool = false
 var _game_over: bool = false
 var _p1_alive: bool = true
 var _p2_alive: bool = true
+
+## Troll state
+var _troll_classes: Array[GDScript] = []
+var _current_troll: TrollBase = null
+var _next_troll_time: float = 30.0
+var _troll_label: Label
 
 func _ready() -> void:
 	randomize()
@@ -79,6 +91,7 @@ func _ready() -> void:
 
 	_setup_screen()
 	_setup_lava()
+	_load_trolls()
 
 	## Seed platforms.
 	if _generator and _generator.has_method("generate_initial"):
@@ -120,6 +133,26 @@ func _process(delta: float) -> void:
 		_update_lava_position()
 		_check_lava_kills()
 
+	## --- Distance Overlay ---
+	if _p1_dist_label and _p1_alive and _player1 and _lava_active:
+		var dist = maxf(0.0, _player1.global_position.y - _lava_y)
+		_p1_dist_label.text = "↓ %.1fm" % dist
+		_p1_dist_label.visible = true
+	elif _p1_dist_label:
+		_p1_dist_label.visible = false
+		
+	if _p2_dist_label and _p2_alive and _player2 and _lava_active:
+		var dist = maxf(0.0, _player2.global_position.y - _lava_y)
+		_p2_dist_label.text = "↓ %.1fm" % dist
+		_p2_dist_label.visible = true
+	elif _p2_dist_label:
+		_p2_dist_label.visible = false
+
+	## --- Troll Logic ------------------------------------------------------
+	if _elapsed_time >= _next_troll_time and not _game_over:
+		_trigger_next_troll()
+		_next_troll_time = _elapsed_time + troll_interval
+
 	## Use the highest player Y for world extension logic.
 	var max_y: float = -INF
 	if _player1 and _p1_alive:
@@ -151,6 +184,48 @@ func _extend_tower() -> void:
 	clone.position = Vector3(0.0, _tower_top_y + tower_height * 0.5, 0.0)
 	add_child(clone)
 	_tower_top_y += tower_height
+
+## -------------------------------------------------------------------------
+## Troll System
+## -------------------------------------------------------------------------
+
+func _load_trolls() -> void:
+	_next_troll_time = troll_start_time
+	var dir = DirAccess.open("res://scripts/trolls")
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if file_name.ends_with(".gd") and file_name != "troll_base.gd":
+				var script = load("res://scripts/trolls/" + file_name) as GDScript
+				if script:
+					_troll_classes.append(script)
+			file_name = dir.get_next()
+
+func _trigger_next_troll() -> void:
+	if _current_troll:
+		_current_troll.end()
+		_current_troll.queue_free()
+		_current_troll = null
+		
+	if _troll_classes.is_empty():
+		return
+		
+	var script := _troll_classes.pick_random() as GDScript
+	var troll := script.new() as TrollBase
+	if troll:
+		troll.game = self
+		add_child(troll)
+		troll.start()
+		_current_troll = troll
+		
+		if _troll_label:
+			_troll_label.text = "TROLL: " + troll.get_troll_name()
+			_troll_label.visible = true
+			
+			var tw := create_tween()
+			_troll_label.modulate = Color(2.0, 0.5, 0.5, 1.0)
+			tw.tween_property(_troll_label, "modulate", Color.WHITE, 0.5)
 
 ## -------------------------------------------------------------------------
 ## Lava
@@ -426,6 +501,52 @@ func _setup_screen() -> void:
 	_winner_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_winner_label.add_theme_constant_override("outline_size", 10)
 	canvas.add_child(_winner_label)
+
+	## Troll announcement label
+	_troll_label = Label.new()
+	_troll_label.anchor_left = 0.0
+	_troll_label.anchor_right = 1.0
+	_troll_label.anchor_top = 0.2
+	_troll_label.anchor_bottom = 0.3
+	_troll_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_troll_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_troll_label.text = ""
+	_troll_label.visible = false
+	_troll_label.add_theme_font_size_override("font_size", 56)
+	_troll_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+	_troll_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_troll_label.add_theme_constant_override("outline_size", 8)
+	canvas.add_child(_troll_label)
+
+	## Lava distance labels
+	_p1_dist_label = Label.new()
+	_p1_dist_label.anchor_top = 1.0
+	_p1_dist_label.anchor_bottom = 1.0
+	_p1_dist_label.anchor_left = 0.5 if not is_duo else 0.25
+	_p1_dist_label.anchor_right = 0.5 if not is_duo else 0.25
+	_p1_dist_label.offset_top = -60
+	_p1_dist_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_p1_dist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_p1_dist_label.add_theme_font_size_override("font_size", 32)
+	_p1_dist_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.1))
+	_p1_dist_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_p1_dist_label.add_theme_constant_override("outline_size", 6)
+	canvas.add_child(_p1_dist_label)
+
+	if is_duo:
+		_p2_dist_label = Label.new()
+		_p2_dist_label.anchor_top = 1.0
+		_p2_dist_label.anchor_bottom = 1.0
+		_p2_dist_label.anchor_left = 0.75
+		_p2_dist_label.anchor_right = 0.75
+		_p2_dist_label.offset_top = -60
+		_p2_dist_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_p2_dist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_p2_dist_label.add_theme_font_size_override("font_size", 32)
+		_p2_dist_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.1))
+		_p2_dist_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		_p2_dist_label.add_theme_constant_override("outline_size", 6)
+		canvas.add_child(_p2_dist_label)
 
 	## Initialise camera positions so the first frame isn't jarring.
 	if _player1:
