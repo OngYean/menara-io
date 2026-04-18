@@ -26,7 +26,7 @@ var camera_shake_intensity: float = 0.0
 ## Troll settings
 @export var troll_start_time: float = 30.0
 @export var troll_interval: float = 15.0
-@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_raining_cats_and_dogs.gd")
+@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_what_the_flip.gd")
 
 var _generator: Node3D
 var _player1: Node3D
@@ -47,6 +47,8 @@ var _p1_clouds: ColorRect
 var _p2_clouds: ColorRect
 var _p1_film: ColorRect
 var _p2_film: ColorRect
+var _p1_inventory_ui: VBoxContainer
+var _p2_inventory_ui: VBoxContainer
 
 ## UI State
 var _elapsed_time: float = 0.0
@@ -73,10 +75,27 @@ var _troll_label: Label
 
 func _ready() -> void:
 	randomize()
+	
+	PowerupManager.is_duo_mode = get_node("/root/Global").game_mode != "singleplayer"
+	PowerupManager.register_powerup(preload("res://scripts/powerups/powerup_double_jump.gd"))
+	
+	var bgm := AudioStreamPlayer.new()
+	bgm.stream = preload("res://assets/menara-io-bgm.ogg")
+	bgm.stream.loop = true
+	bgm.bus = &"Master"
+	bgm.volume_linear = 0.5
+	bgm.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(bgm)
+	bgm.play()
 
 	_generator = get_node_or_null(platform_generator_path) as Node3D
 	_player1 = get_node_or_null(player1_path) as Node3D
 	_player2 = get_node_or_null(player2_path) as Node3D
+	
+	if _player1:
+		_player1.inventory_changed.connect(_update_p1_inventory_ui)
+	if _player2:
+		_player2.inventory_changed.connect(_update_p2_inventory_ui)
 	
 	if get_node("/root/Global").game_mode == "singleplayer":
 		if _player2:
@@ -218,6 +237,8 @@ func _trigger_next_troll() -> void:
 		_current_troll.end()
 		_current_troll.queue_free()
 		_current_troll = null
+		
+	camera_shake_intensity = 0.0
 		
 	if _troll_classes.is_empty():
 		return
@@ -450,6 +471,12 @@ func _setup_screen() -> void:
 	_p1_film = _create_film_overlay()
 	left_vp.add_child(_p1_film)
 
+	_p1_inventory_ui = VBoxContainer.new()
+	_p1_inventory_ui.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	_p1_inventory_ui.offset_left = 20
+	_p1_inventory_ui.alignment = BoxContainer.ALIGNMENT_CENTER
+	left_container.add_child(_p1_inventory_ui)
+
 	if is_duo:
 		## --- Right half (Player 2) ---
 		var right_container := SubViewportContainer.new()
@@ -485,6 +512,12 @@ func _setup_screen() -> void:
 		_p2_film = _create_film_overlay()
 		right_vp.add_child(_p2_film)
 
+		_p2_inventory_ui = VBoxContainer.new()
+		_p2_inventory_ui.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		_p2_inventory_ui.offset_right = -20
+		_p2_inventory_ui.alignment = BoxContainer.ALIGNMENT_CENTER
+		right_container.add_child(_p2_inventory_ui)
+
 	## --- UI Overlay (added last so it renders on top) ---
 	if is_duo:
 		var separator := ColorRect.new()
@@ -508,6 +541,16 @@ func _setup_screen() -> void:
 	_timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_timer_label.add_theme_constant_override("outline_size", 8)
 	canvas.add_child(_timer_label)
+
+	## In-game logo
+	var logo := TextureRect.new()
+	logo.texture = preload("res://assets/favicon.png")
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(80, 80)
+	logo.offset_left = 20
+	logo.offset_top = 20
+	canvas.add_child(logo)
 
 	## Grace period countdown label
 	_grace_label = Label.new()
@@ -643,3 +686,22 @@ func _create_film_overlay() -> ColorRect:
 	mat.shader = preload("res://shaders/moonlanding_film.gdshader")
 	cr.material = mat
 	return cr
+func _update_p1_inventory_ui() -> void:
+	_update_inventory_ui(_player1, _p1_inventory_ui)
+
+func _update_p2_inventory_ui() -> void:
+	_update_inventory_ui(_player2, _p2_inventory_ui)
+
+func _update_inventory_ui(player: Node3D, container: VBoxContainer) -> void:
+	if not player or not container: return
+	for child in container.get_children():
+		child.queue_free()
+	
+	for script in player.inventory:
+		var inst = script.new()
+		var rect = TextureRect.new()
+		rect.texture = inst.get_icon()
+		rect.custom_minimum_size = Vector2(80, 80)
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		container.add_child(rect)

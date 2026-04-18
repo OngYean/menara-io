@@ -26,8 +26,15 @@ var fall_disabled: bool = false
 var wind_force: float = 0.0
 var acceleration_scale: float = 1.0
 
+## Plunge attack / stun state
+var _stun_timer: float = 0.0
+var _is_stunned: bool = false
+var _plunge_accel: float = 200.0
+
 func _ready() -> void:
 	_ensure_input_actions()
+
+signal inventory_changed
 
 var _knockback: Vector3 = Vector3.ZERO
 var inventory: Array[GDScript] = []
@@ -36,19 +43,49 @@ func apply_knockback(force: Vector3) -> void:
 	_knockback += force
 
 func pickup_powerup(powerup_script: GDScript) -> void:
+	var sfx := AudioStreamPlayer.new()
+	sfx.stream = preload("res://assets/sfx_pickup.ogg")
+	sfx.bus = &"Master"
+	add_child(sfx)
+	sfx.play()
+	sfx.finished.connect(sfx.queue_free)
+
 	inventory.append(powerup_script)
+	inventory_changed.emit()
 	print("Picked up powerup! Inventory size: ", inventory.size())
 
 func _physics_process(delta: float) -> void:
+	## --- Stun countdown ---
+	if _is_stunned:
+		_stun_timer -= delta
+		if _stun_timer <= 0.0:
+			_is_stunned = false
+			_stun_timer = 0.0
+
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
-		if not fall_disabled and Input.is_action_pressed(action_fall):
+		if not _is_stunned and not fall_disabled and Input.is_action_pressed(action_fall):
 			velocity.y -= 120.0 * delta
 
-	if Input.is_action_just_pressed(action_jump) and is_on_floor():
-		velocity.y = jump_velocity
+	if not _is_stunned:
+		if Input.is_action_just_pressed(action_jump):
+			if is_on_floor():
+				velocity.y = jump_velocity
+				_play_jump_sfx()
+			else:
+				# Check for double jump in inventory
+				for i in range(inventory.size()):
+					var inst = inventory[i].new()
+					if inst.get_powerup_name() == "DOUBLE JUMP":
+						velocity.y = jump_velocity
+						_play_jump_sfx()
+						inventory.remove_at(i)
+						inventory_changed.emit()
+						break
 
-	var turn_input: float = Input.get_action_strength(action_move_right) - Input.get_action_strength(action_move_left)
+	var turn_input: float = 0.0
+	if not _is_stunned:
+		turn_input = Input.get_action_strength(action_move_right) - Input.get_action_strength(action_move_left)
 
 	## Tangent direction: perpendicular to the outward radial, so the player
 	## always runs along the tower wall rather than toward/away from the centre.
@@ -71,6 +108,15 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_clamp_inside_tower()
 
+	## --- Plunge attack: check collisions with other players ---
+	for i in get_slide_collision_count():
+		var col = get_slide_collision(i)
+		var collider = col.get_collider()
+		if collider is CharacterBody3D and collider != self and collider.has_method("receive_plunge"):
+			# Attacker must be holding the fall key and coming from above
+			if not _is_stunned and Input.is_action_pressed(action_fall) and global_position.y > collider.global_position.y:
+				collider.receive_plunge()
+
 	if is_on_floor():
 		for i in get_slide_collision_count():
 			var col = get_slide_collision(i)
@@ -78,6 +124,18 @@ func _physics_process(delta: float) -> void:
 				var collider = col.get_collider()
 				if collider and collider.has_method("on_stepped"):
 					collider.on_stepped()
+
+func receive_plunge() -> void:
+	if _is_stunned:
+		return  # Already stunned, don't stack
+	if is_on_floor():
+		# Grounded: stun for 3 seconds
+		_is_stunned = true
+		_stun_timer = 3.0
+		velocity = Vector3.ZERO
+	else:
+		# Airborne: slam downward
+		velocity.y -= _plunge_accel
 
 func _clamp_inside_tower() -> void:
 	## Pin the player to wall_radius so they are always at a consistent distance
@@ -90,6 +148,14 @@ func _clamp_inside_tower() -> void:
 
 	global_position.x = tower_center.x + radial.x
 	global_position.z = tower_center.z + radial.y
+
+func _play_jump_sfx() -> void:
+	var sfx := AudioStreamPlayer.new()
+	sfx.stream = preload("res://assets/sfx_jump.ogg")
+	sfx.bus = &"Master"
+	add_child(sfx)
+	sfx.play()
+	sfx.finished.connect(sfx.queue_free)
 
 func _ensure_input_actions() -> void:
 	_add_action_key_if_missing(action_move_left, key_move_left)

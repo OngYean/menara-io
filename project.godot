@@ -13,7 +13,7 @@ config_version=5
 config/name="Menara.io"
 run/main_scene="uid://cgahfto77a6q1"
 config/features=PackedStringArray("4.6", "GL Compatibility")
-config/icon="res://icon.svg"
+config/icon="res://assets/favicon.png"
 
 [autoload]
 
