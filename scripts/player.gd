@@ -30,9 +30,14 @@ func _ready() -> void:
 	_ensure_input_actions()
 
 var _knockback: Vector3 = Vector3.ZERO
+var inventory: Array[GDScript] = []
 
 func apply_knockback(force: Vector3) -> void:
 	_knockback += force
+
+func pickup_powerup(powerup_script: GDScript) -> void:
+	inventory.append(powerup_script)
+	print("Picked up powerup! Inventory size: ", inventory.size())
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():

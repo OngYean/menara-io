@@ -153,6 +153,43 @@ func _spawn_platform_at(y: float, theta: float, spin_radians: float) -> void:
 	collision_shape.shape = convex_shape
 	platform_root.add_child(collision_shape)
 
+	if randf() < 0.1:
+		_spawn_powerup_on_platform(platform_root, inner_radius, tower_radius, spin_radians)
+
+func _spawn_powerup_on_platform(platform: StaticBody3D, inner_r: float, outer_r: float, spin: float) -> void:
+	var area := Area3D.new()
+	area.set_script(preload("res://scripts/powerups/powerup_pickup.gd"))
+	
+	var mesh_inst := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(1.5, 1.5, 1.5)
+	
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.8, 0.2) # Golden
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.8, 0.2)
+	mat.emission_energy_multiplier = 2.0
+	box.surface_set_material(0, mat)
+	
+	mesh_inst.mesh = box
+	area.add_child(mesh_inst)
+	
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(1.5, 1.5, 1.5)
+	col.shape = shape
+	area.add_child(col)
+	
+	# Position at inner_r to match the player's movement radius (27.0)
+	var random_angle = randf_range(-spin * 0.4, spin * 0.4)
+	var px = inner_r * cos(random_angle)
+	var pz = inner_r * sin(random_angle)
+	
+	area.position = Vector3(px, platform_thickness + 0.75, pz)
+	platform.add_child(area)
+	
+	area.setup(PowerupManager.get_random_powerup())
+
 ## -------------------------------------------------------------------------
 ## Mesh helpers (unchanged)
 ## -------------------------------------------------------------------------
