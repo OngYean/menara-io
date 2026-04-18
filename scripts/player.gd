@@ -70,9 +70,14 @@ func pickup_powerup(powerup_script: GDScript) -> void:
 	sfx.finished.connect(sfx.queue_free)
 
 	var inst = powerup_script.new()
-	if inst.has_method("get_powerup_name") and inst.get_powerup_name() == "FLY":
+	var p_name = inst.get_powerup_name() if inst.has_method("get_powerup_name") else ""
+	
+	if p_name == "FLY":
 		fly_timer = 5.0
 		print("Picked up FLY! Timer set to 5.0")
+		return
+	elif p_name == "FLASHBANG":
+		inst.activate(self)
 		return
 
 	inventory.append(powerup_script)

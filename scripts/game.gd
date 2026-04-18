@@ -47,6 +47,10 @@ var _p1_clouds: ColorRect
 var _p2_clouds: ColorRect
 var _p1_film: ColorRect
 var _p2_film: ColorRect
+
+var _p1_flash: ColorRect
+var _p2_flash: ColorRect
+
 var _p1_inventory_ui: VBoxContainer
 var _p2_inventory_ui: VBoxContainer
 
@@ -96,6 +100,7 @@ func _ready() -> void:
 	PowerupManager.is_duo_mode = _is_duo
 	PowerupManager.register_powerup(preload("res://scripts/powerups/powerup_double_jump.gd"))
 	PowerupManager.register_powerup(preload("res://scripts/powerups/powerup_fly.gd"))
+	PowerupManager.register_powerup(preload("res://scripts/powerups/powerup_flashbang.gd"))
 	
 	var bgm := AudioStreamPlayer.new()
 	bgm.stream = preload("res://assets/menara-io-bgm.ogg")
@@ -392,6 +397,44 @@ func _declare_winner(text: String) -> void:
 		_game_over_ui.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
+func flashbang_player(player_index: int) -> void:
+	var flash = _p1_flash if player_index == 1 else _p2_flash
+	if not flash: return
+	
+	flash.color.a = 1.0
+	var tw = create_tween()
+	tw.tween_interval(3.0) # Hold pure white for 3 seconds
+	tw.tween_property(flash, "color:a", 0.0, 4.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+func spawn_flashbang_warning(player_index: int) -> void:
+	var container = get_node_or_null("ScreenCanvas/LeftView") if player_index == 1 else get_node_or_null("ScreenCanvas/RightView")
+	if not container: return
+	
+	var icon := TextureRect.new()
+	icon.texture = preload("res://assets/powerup_flashbang.png")
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.custom_minimum_size = Vector2(128, 128)
+	icon.size = Vector2(128, 128)
+	
+	# Start from bottom center
+	icon.position = Vector2(container.size.x * 0.5 - 64, container.size.y + 100)
+	container.add_child(icon)
+	
+	var tw = create_tween()
+	# Fly to center
+	tw.tween_property(icon, "position", Vector2(container.size.x * 0.5 - 64, container.size.y * 0.5 - 64), 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	
+	# Shake effect using a separate tween for simplicity
+	var shake_tw = create_tween().set_loops(10)
+	shake_tw.tween_property(icon, "rotation_degrees", 10.0, 0.1)
+	shake_tw.tween_property(icon, "rotation_degrees", -10.0, 0.1)
+	
+	# Wait and then remove
+	tw.tween_interval(1.5)
+	tw.tween_callback(icon.queue_free)
+	tw.tween_callback(shake_tw.kill)
+
 func _create_lava_shader() -> Shader:
 	var shader := Shader.new()
 	shader.code = """shader_type spatial;
@@ -525,6 +568,12 @@ func _setup_screen() -> void:
 	_p1_film = _create_film_overlay()
 	left_vp.add_child(_p1_film)
 
+	_p1_flash = ColorRect.new()
+	_p1_flash.color = Color(1, 1, 1, 0)
+	_p1_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_p1_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	left_container.add_child(_p1_flash)
+
 	_p1_inventory_ui = VBoxContainer.new()
 	_p1_inventory_ui.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	_p1_inventory_ui.offset_left = 20
@@ -579,6 +628,12 @@ func _setup_screen() -> void:
 		
 		_p2_film = _create_film_overlay()
 		right_vp.add_child(_p2_film)
+
+		_p2_flash = ColorRect.new()
+		_p2_flash.color = Color(1, 1, 1, 0)
+		_p2_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_p2_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		right_container.add_child(_p2_flash)
 
 		_p2_inventory_ui = VBoxContainer.new()
 		_p2_inventory_ui.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
