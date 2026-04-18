@@ -22,6 +22,7 @@ extends CharacterBody3D
 @export var key_fall: Key = KEY_S
 
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var fall_disabled: bool = false
 
 func _ready() -> void:
 	_ensure_input_actions()
@@ -29,7 +30,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
-		if Input.is_action_pressed(action_fall):
+		if not fall_disabled and Input.is_action_pressed(action_fall):
 			velocity.y -= 120.0 * delta
 
 	if Input.is_action_just_pressed(action_jump) and is_on_floor():

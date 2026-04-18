@@ -59,6 +59,7 @@ var _p2_alive: bool = true
 ## Troll state
 var _troll_classes: Array[GDScript] = []
 var _current_troll: TrollBase = null
+var _last_troll_script: GDScript = null
 var _next_troll_time: float = 30.0
 var _troll_label: Label
 
@@ -116,16 +117,18 @@ func _process(delta: float) -> void:
 		var ms := int((_elapsed_time - int(_elapsed_time)) * 100)
 		_timer_label.text = "%02d:%02d.%02d" % [mins, secs, ms]
 
-	## --- Grace period -----------------------------------------------------
-	if not _lava_active:
-		var remaining := grace_period - _elapsed_time
-		if remaining <= 0.0:
-			_lava_active = true
-			if _grace_label:
-				_grace_label.queue_free()
-				_grace_label = null
-		elif _grace_label:
-			_grace_label.text = "LAVA IN %d" % ceili(remaining)
+	## --- Grace period & Troll countdown -------------------------------------
+	if _grace_label:
+		if not _lava_active:
+			var remaining := grace_period - _elapsed_time
+			if remaining <= 0.0:
+				_lava_active = true
+			else:
+				_grace_label.text = "LAVA IN %d" % ceili(remaining)
+		
+		if _lava_active:
+			var remaining_troll := _next_troll_time - _elapsed_time
+			_grace_label.text = "NEXT TROLL IN %d" % maxf(0.0, ceili(remaining_troll))
 
 	## --- Lava rising ------------------------------------------------------
 	if _lava_active:
@@ -211,7 +214,12 @@ func _trigger_next_troll() -> void:
 	if _troll_classes.is_empty():
 		return
 		
-	var script := _troll_classes.pick_random() as GDScript
+	var pool := _troll_classes.duplicate()
+	if _last_troll_script and pool.size() > 1:
+		pool.erase(_last_troll_script)
+		
+	var script := pool.pick_random() as GDScript
+	_last_troll_script = script
 	var troll := script.new() as TrollBase
 	if troll:
 		troll.game = self
