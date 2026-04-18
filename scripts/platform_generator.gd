@@ -160,20 +160,6 @@ func _spawn_powerup_on_platform(platform: StaticBody3D, inner_r: float, outer_r:
 	var area := Area3D.new()
 	area.set_script(preload("res://scripts/powerups/powerup_pickup.gd"))
 	
-	var mesh_inst := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(1.5, 1.5, 1.5)
-	
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.8, 0.2) # Golden
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.8, 0.2)
-	mat.emission_energy_multiplier = 2.0
-	box.surface_set_material(0, mat)
-	
-	mesh_inst.mesh = box
-	area.add_child(mesh_inst)
-	
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(1.5, 1.5, 1.5)
