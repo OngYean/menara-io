@@ -9,8 +9,8 @@ extends Node3D
 ## Height gap between consecutive platforms.
 ## With jump_velocity 18 and gravity_scale 2.2 the max jump height ≈ 7.5 units.
 ## Keep max well under that so every platform is reachable.
-@export var min_height_interval: float = 4.0
-@export var max_height_interval: float = 6.0
+@export var min_height_interval: float = 5.0
+@export var max_height_interval: float = 7.0
 
 ## Number of platforms to spawn around the tower at each height level.
 @export var min_platforms_per_level: int = 2
@@ -112,7 +112,7 @@ func _generate_up_to(target_y: float) -> void:
 		for i in range(platforms_this_level):
 			var base_angle := (float(i) / float(platforms_this_level)) * TAU
 			var angle := fmod(base_angle + best_offset + randf_range(-0.1, 0.1), TAU)
-			var y_jitter := randf_range(-0.5, 0.5)
+			var y_jitter := 0.0
 			var spin := best_spins[i] as float
 			
 			var actual_y := _next_y + y_jitter

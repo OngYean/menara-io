@@ -255,6 +255,19 @@ func _setup_scotty_model() -> void:
 	
 	## Apply player color to the "Bois" (body) material on all mesh instances.
 	_apply_color_to_model(_model, player_color)
+	
+	_setup_collision()
+
+func _setup_collision() -> void:
+	var col_shape = get_node_or_null("CollisionShape3D")
+	if col_shape:
+		var box := BoxShape3D.new()
+		# Model is approx 14 units. Scale 0.35x0.15x0.35
+		# We want a box that covers the base and height.
+		# Note: Player scale is 1.5, so we define local box size.
+		box.size = Vector3(1.0, 2.0, 1.0) 
+		col_shape.shape = box
+		col_shape.position.y = 0.4 # Center it vertically (box is centered)
 
 func _apply_color_to_model(node: Node, color: Color) -> void:
 	if node is MeshInstance3D:
