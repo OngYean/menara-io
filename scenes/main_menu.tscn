@@ -29,10 +29,19 @@ offset_right = 776.0
 offset_bottom = 359.0
 placeholder_text = "Enter your name..."
 
-[node name="Button" type="Button" parent="." unique_id=453123915]
+[node name="SingleplayerButton" type="Button" parent="." unique_id=453123915]
 layout_mode = 0
-offset_left = 520.0
+offset_left = 370.0
 offset_top = 424.0
-offset_right = 665.0
+offset_right = 515.0
 offset_bottom = 492.0
-text = "Start"
+text = "Singleplayer"
+
+[node name="DuoButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 670.0
+offset_top = 424.0
+offset_right = 815.0
+offset_bottom = 492.0
+text = "Duo"
+

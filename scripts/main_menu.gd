@@ -1,11 +1,21 @@
 extends Control
 
-@onready var _start_button: Button = $Button
+@onready var _singleplayer_button: Button = $SingleplayerButton
+@onready var _duo_button: Button = $DuoButton
 
 func _ready() -> void:
-	_start_button.pressed.connect(_on_start_button_pressed)
+	_singleplayer_button.pressed.connect(_on_singleplayer_pressed)
+	_duo_button.pressed.connect(_on_duo_pressed)
 
-func _on_start_button_pressed() -> void:
+func _on_singleplayer_pressed() -> void:
+	Global.game_mode = "singleplayer"
+	_start_game()
+
+func _on_duo_pressed() -> void:
+	Global.game_mode = "duo"
+	_start_game()
+
+func _start_game() -> void:
 	var error := get_tree().change_scene_to_file("res://scenes/game.tscn")
 	if error != OK:
 		push_error("Failed to load game scene. Error code: %d" % error)

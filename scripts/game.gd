@@ -17,7 +17,7 @@ extends Node3D
 
 ## Lava settings.
 @export var grace_period: float = 15.0
-@export var lava_rise_speed: float = 3.0
+@export var lava_rise_speed: float = 6.0
 @export var lava_start_y: float = -10.0
 @export var lava_radius: float = 29.5
 @export var lava_column_height: float = 400.0
@@ -56,6 +56,13 @@ func _ready() -> void:
 	_generator = get_node_or_null(platform_generator_path) as Node3D
 	_player1 = get_node_or_null(player1_path) as Node3D
 	_player2 = get_node_or_null(player2_path) as Node3D
+	
+	if Global.game_mode == "singleplayer":
+		if _player2:
+			_player2.queue_free()
+			_player2 = null
+		_p2_alive = false
+
 	_tower = get_node_or_null(tower_path) as MeshInstance3D
 	_sun = get_node_or_null(sun_path) as DirectionalLight3D
 	if _sun:
@@ -70,7 +77,7 @@ func _ready() -> void:
 	if old_pivot:
 		old_pivot.queue_free()
 
-	_setup_split_screen()
+	_setup_screen()
 	_setup_lava()
 
 	## Seed platforms.
@@ -182,6 +189,14 @@ func _check_lava_kills() -> void:
 		_kill_player(2)
 
 func _kill_player(player_index: int) -> void:
+	if Global.game_mode == "singleplayer":
+		_p1_alive = false
+		if _player1:
+			_player1.set_physics_process(false)
+			_player1.visible = false
+		_declare_winner("GAME OVER")
+		return
+
 	if player_index == 1:
 		_p1_alive = false
 		if _player1:
@@ -293,24 +308,26 @@ void fragment() {
 	return shader
 
 ## -------------------------------------------------------------------------
-## Split-screen setup
+## Screen setup
 ## -------------------------------------------------------------------------
 
-func _setup_split_screen() -> void:
+func _setup_screen() -> void:
 	var main_world: World3D = get_viewport().world_3d
 
 	## Create a CanvasLayer so the SubViewportContainers fill the screen.
 	var canvas := CanvasLayer.new()
-	canvas.name = "SplitScreen"
+	canvas.name = "ScreenCanvas"
 	add_child(canvas)
+	
+	var is_duo = Global.game_mode == "duo"
 
-	## --- Left half (Player 1) ---
+	## --- Left half (Player 1) or Full Screen ---
 	var left_container := SubViewportContainer.new()
 	left_container.name = "LeftView"
 	left_container.stretch = true
 	left_container.anchor_left = 0.0
 	left_container.anchor_top = 0.0
-	left_container.anchor_right = 0.5
+	left_container.anchor_right = 0.5 if is_duo else 1.0
 	left_container.anchor_bottom = 1.0
 	left_container.offset_left = 0
 	left_container.offset_top = 0
@@ -329,40 +346,42 @@ func _setup_split_screen() -> void:
 	_cam1.current = true
 	left_vp.add_child(_cam1)
 
-	## --- Right half (Player 2) ---
-	var right_container := SubViewportContainer.new()
-	right_container.name = "RightView"
-	right_container.stretch = true
-	right_container.anchor_left = 0.5
-	right_container.anchor_top = 0.0
-	right_container.anchor_right = 1.0
-	right_container.anchor_bottom = 1.0
-	right_container.offset_left = 0
-	right_container.offset_top = 0
-	right_container.offset_right = 0
-	right_container.offset_bottom = 0
-	canvas.add_child(right_container)
+	if is_duo:
+		## --- Right half (Player 2) ---
+		var right_container := SubViewportContainer.new()
+		right_container.name = "RightView"
+		right_container.stretch = true
+		right_container.anchor_left = 0.5
+		right_container.anchor_top = 0.0
+		right_container.anchor_right = 1.0
+		right_container.anchor_bottom = 1.0
+		right_container.offset_left = 0
+		right_container.offset_top = 0
+		right_container.offset_right = 0
+		right_container.offset_bottom = 0
+		canvas.add_child(right_container)
 
-	var right_vp := SubViewport.new()
-	right_vp.name = "SubViewport"
-	right_vp.world_3d = main_world
-	right_vp.handle_input_locally = false
-	right_container.add_child(right_vp)
+		var right_vp := SubViewport.new()
+		right_vp.name = "SubViewport"
+		right_vp.world_3d = main_world
+		right_vp.handle_input_locally = false
+		right_container.add_child(right_vp)
 
-	_cam2 = Camera3D.new()
-	_cam2.name = "Camera3D"
-	_cam2.current = true
-	right_vp.add_child(_cam2)
+		_cam2 = Camera3D.new()
+		_cam2.name = "Camera3D"
+		_cam2.current = true
+		right_vp.add_child(_cam2)
 
 	## --- UI Overlay (added last so it renders on top) ---
-	var separator := ColorRect.new()
-	separator.color = Color.BLACK
-	separator.anchor_left = 0.5
-	separator.anchor_right = 0.5
-	separator.anchor_bottom = 1.0
-	separator.offset_left = -2
-	separator.offset_right = 2
-	canvas.add_child(separator)
+	if is_duo:
+		var separator := ColorRect.new()
+		separator.color = Color.BLACK
+		separator.anchor_left = 0.5
+		separator.anchor_right = 0.5
+		separator.anchor_bottom = 1.0
+		separator.offset_left = -2
+		separator.offset_right = 2
+		canvas.add_child(separator)
 
 	_timer_label = Label.new()
 	_timer_label.anchor_left = 0.5

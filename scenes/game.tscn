@@ -121,14 +121,6 @@ script = ExtResource("4_platform_gen")
 [node name="Player" type="CharacterBody3D" parent="." unique_id=1715561106]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27, 2, 0)
 script = ExtResource("2_player")
-action_move_left = &"p1_move_left"
-action_move_right = &"p1_move_right"
-action_jump = &"p1_jump"
-action_fall = &"p1_fall"
-key_move_left = 65
-key_move_right = 68
-key_jump = 87
-key_fall = 83
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=1129223447]
 shape = SubResource("CapsuleShape3D_player")
@@ -136,7 +128,7 @@ shape = SubResource("CapsuleShape3D_player")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Player" unique_id=1681300274]
 mesh = SubResource("CapsuleMesh_player")
 
-[node name="Player2" type="CharacterBody3D" parent="."]
+[node name="Player2" type="CharacterBody3D" parent="." unique_id=624860485]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 2, 0)
 script = ExtResource("2_player")
 action_move_left = &"p2_move_left"
@@ -148,10 +140,10 @@ key_move_right = 76
 key_jump = 73
 key_fall = 75
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Player2"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player2" unique_id=1637278733]
 shape = SubResource("CapsuleShape3D_player2")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Player2"]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Player2" unique_id=11995489]
 mesh = SubResource("CapsuleMesh_player2")
 
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1060393415]
