@@ -9,6 +9,18 @@ extends CharacterBody3D
 ## Multiplier on top of the project gravity – higher = snappier falls.
 @export var gravity_scale: float = 2.2
 
+## Configurable input action names – unique per player to avoid conflicts.
+@export var action_move_left: StringName = &"p1_move_left"
+@export var action_move_right: StringName = &"p1_move_right"
+@export var action_jump: StringName = &"p1_jump"
+@export var action_fall: StringName = &"p1_fall"
+
+## Key bindings – registered automatically at runtime.
+@export var key_move_left: Key = KEY_A
+@export var key_move_right: Key = KEY_D
+@export var key_jump: Key = KEY_W
+@export var key_fall: Key = KEY_S
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 func _ready() -> void:
@@ -17,21 +29,13 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
-		if Input.is_action_pressed("fall"):
+		if Input.is_action_pressed(action_fall):
 			velocity.y -= 120.0 * delta
-	
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = jump_velocity
-		if Input.is_action_pressed("fall"):
-			velocity.y -= 5.0 * delta # Increase downward speed when 'fall' is held
-	
-	if Input.is_action_just_pressed("jump") and is_on_floor():
+
+	if Input.is_action_just_pressed(action_jump) and is_on_floor():
 		velocity.y = jump_velocity
 
-	if Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = jump_velocity
-
-	var turn_input: float = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
+	var turn_input: float = Input.get_action_strength(action_move_right) - Input.get_action_strength(action_move_left)
 
 	## Tangent direction: perpendicular to the outward radial, so the player
 	## always runs along the tower wall rather than toward/away from the centre.
@@ -63,11 +67,10 @@ func _clamp_inside_tower() -> void:
 	global_position.z = tower_center.z + radial.y
 
 func _ensure_input_actions() -> void:
-
-	_add_action_key_if_missing("move_left", KEY_A)
-	_add_action_key_if_missing("move_right", KEY_D)
-	_add_action_key_if_missing("jump", KEY_W)
-	_add_action_key_if_missing("fall", KEY_S)
+	_add_action_key_if_missing(action_move_left, key_move_left)
+	_add_action_key_if_missing(action_move_right, key_move_right)
+	_add_action_key_if_missing(action_jump, key_jump)
+	_add_action_key_if_missing(action_fall, key_fall)
 
 func _add_action_key_if_missing(action_name: StringName, keycode: Key) -> void:
 	if not InputMap.has_action(action_name):

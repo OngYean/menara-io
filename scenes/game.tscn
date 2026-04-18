@@ -84,6 +84,17 @@ roughness = 0.4
 material = SubResource("StandardMaterial3D_player")
 height = 1.2
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player2"]
+height = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player2"]
+albedo_color = Color(0.95, 0.45, 0.15, 1)
+roughness = 0.4
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_player2"]
+material = SubResource("StandardMaterial3D_player2")
+height = 1.2
+
 [node name="Node3D" type="Node3D" unique_id=1535885166]
 script = ExtResource("1_game")
 
@@ -108,14 +119,40 @@ shape = SubResource("CylinderShape3D_floor")
 script = ExtResource("4_platform_gen")
 
 [node name="Player" type="CharacterBody3D" parent="." unique_id=1715561106]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25.983524, 2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27, 2, 0)
 script = ExtResource("2_player")
+action_move_left = &"p1_move_left"
+action_move_right = &"p1_move_right"
+action_jump = &"p1_jump"
+action_fall = &"p1_fall"
+key_move_left = 65
+key_move_right = 68
+key_jump = 87
+key_fall = 83
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=1129223447]
 shape = SubResource("CapsuleShape3D_player")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Player" unique_id=1681300274]
 mesh = SubResource("CapsuleMesh_player")
+
+[node name="Player2" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -27, 2, 0)
+script = ExtResource("2_player")
+action_move_left = &"p2_move_left"
+action_move_right = &"p2_move_right"
+action_jump = &"p2_jump"
+action_fall = &"p2_fall"
+key_move_left = 74
+key_move_right = 76
+key_jump = 73
+key_fall = 75
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player2"]
+shape = SubResource("CapsuleShape3D_player2")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Player2"]
+mesh = SubResource("CapsuleMesh_player2")
 
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1060393415]
 script = ExtResource("3_camera")
