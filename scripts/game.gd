@@ -15,6 +15,13 @@ extends Node3D
 @export var camera_distance: float = 35.0
 @export var camera_smoothing: float = 12.0
 
+## Lava settings.
+@export var grace_period: float = 15.0
+@export var lava_rise_speed: float = 3.0
+@export var lava_start_y: float = -10.0
+@export var lava_radius: float = 29.5
+@export var lava_column_height: float = 400.0
+
 var _generator: Node3D
 var _player1: Node3D
 var _player2: Node3D
@@ -32,6 +39,16 @@ var _cam2: Camera3D
 ## UI State
 var _elapsed_time: float = 0.0
 var _timer_label: Label
+var _winner_label: Label
+var _grace_label: Label
+
+## Lava state
+var _lava_mesh: MeshInstance3D
+var _lava_y: float = -10.0
+var _lava_active: bool = false
+var _game_over: bool = false
+var _p1_alive: bool = true
+var _p2_alive: bool = true
 
 func _ready() -> void:
 	randomize()
@@ -54,6 +71,7 @@ func _ready() -> void:
 		old_pivot.queue_free()
 
 	_setup_split_screen()
+	_setup_lava()
 
 	## Seed platforms.
 	if _generator and _generator.has_method("generate_initial"):
@@ -62,7 +80,15 @@ func _ready() -> void:
 			start_y = _player1.global_position.y
 		_generator.generate_initial(start_y, start_y + 20.0)
 
+	_lava_y = lava_start_y
+
 func _process(delta: float) -> void:
+	if _game_over:
+		## Keep cameras alive but freeze everything else.
+		_update_camera(_cam1, _player1, delta)
+		_update_camera(_cam2, _player2, delta)
+		return
+
 	_elapsed_time += delta
 	if _timer_label:
 		var mins := int(_elapsed_time) / 60
@@ -70,11 +96,28 @@ func _process(delta: float) -> void:
 		var ms := int((_elapsed_time - int(_elapsed_time)) * 100)
 		_timer_label.text = "%02d:%02d.%02d" % [mins, secs, ms]
 
+	## --- Grace period -----------------------------------------------------
+	if not _lava_active:
+		var remaining := grace_period - _elapsed_time
+		if remaining <= 0.0:
+			_lava_active = true
+			if _grace_label:
+				_grace_label.queue_free()
+				_grace_label = null
+		elif _grace_label:
+			_grace_label.text = "LAVA IN %d" % ceili(remaining)
+
+	## --- Lava rising ------------------------------------------------------
+	if _lava_active:
+		_lava_y += lava_rise_speed * delta
+		_update_lava_position()
+		_check_lava_kills()
+
 	## Use the highest player Y for world extension logic.
 	var max_y: float = -INF
-	if _player1:
+	if _player1 and _p1_alive:
 		max_y = maxf(max_y, _player1.global_position.y)
-	if _player2:
+	if _player2 and _p2_alive:
 		max_y = maxf(max_y, _player2.global_position.y)
 	if max_y == -INF:
 		return
@@ -83,9 +126,6 @@ func _process(delta: float) -> void:
 	if _generator:
 		if _generator.has_method("extend_to"):
 			_generator.extend_to(max_y)
-		## Culling disabled for now – re-enable when ready.
-		#if _generator.has_method("cull_below"):
-		#	_generator.cull_below(max_y)
 
 	## --- Keep the sun following the highest player so lighting stays -------
 	if _sun:
@@ -104,6 +144,153 @@ func _extend_tower() -> void:
 	clone.position = Vector3(0.0, _tower_top_y + tower_height * 0.5, 0.0)
 	add_child(clone)
 	_tower_top_y += tower_height
+
+## -------------------------------------------------------------------------
+## Lava
+## -------------------------------------------------------------------------
+
+func _setup_lava() -> void:
+	## Create a tall cylinder that represents the lava column.
+	## Its TOP surface sits at _lava_y.  We position it so top = _lava_y.
+	var lava_mat := ShaderMaterial.new()
+	lava_mat.shader = _create_lava_shader()
+
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = lava_radius
+	cyl.bottom_radius = lava_radius
+	cyl.height = lava_column_height
+	cyl.radial_segments = 96
+	cyl.rings = 1
+	cyl.material = lava_mat
+
+	_lava_mesh = MeshInstance3D.new()
+	_lava_mesh.mesh = cyl
+	_lava_mesh.name = "Lava"
+	add_child(_lava_mesh)
+
+	_update_lava_position()
+
+func _update_lava_position() -> void:
+	if _lava_mesh:
+		## CylinderMesh is centred on its origin; shift so TOP = _lava_y.
+		_lava_mesh.position = Vector3(0.0, _lava_y - lava_column_height * 0.5, 0.0)
+
+func _check_lava_kills() -> void:
+	if _p1_alive and _player1 and _player1.global_position.y < _lava_y:
+		_kill_player(1)
+	if _p2_alive and _player2 and _player2.global_position.y < _lava_y:
+		_kill_player(2)
+
+func _kill_player(player_index: int) -> void:
+	if player_index == 1:
+		_p1_alive = false
+		if _player1:
+			_player1.set_physics_process(false)
+			_player1.visible = false
+		if _p2_alive:
+			_declare_winner("PLAYER 2 WINS!")
+		else:
+			_declare_winner("DRAW!")
+	elif player_index == 2:
+		_p2_alive = false
+		if _player2:
+			_player2.set_physics_process(false)
+			_player2.visible = false
+		if _p1_alive:
+			_declare_winner("PLAYER 1 WINS!")
+		else:
+			_declare_winner("DRAW!")
+
+func _declare_winner(text: String) -> void:
+	_game_over = true
+	if _winner_label:
+		_winner_label.text = text
+		_winner_label.visible = true
+
+func _create_lava_shader() -> Shader:
+	var shader := Shader.new()
+	shader.code = """shader_type spatial;
+render_mode cull_disabled, unshaded;
+
+uniform float time_scale : hint_range(0.1, 5.0) = 1.0;
+
+// Simplex-ish hash for noise
+vec2 hash22(vec2 p) {
+	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+	return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+}
+
+float noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(
+		mix(dot(hash22(i), f),
+			dot(hash22(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)), u.x),
+		mix(dot(hash22(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)),
+			dot(hash22(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)), u.x),
+		u.y
+	);
+}
+
+float fbm(vec2 p) {
+	float v = 0.0;
+	float a = 0.5;
+	vec2 shift = vec2(100.0);
+	for (int i = 0; i < 4; i++) {
+		v += a * noise(p);
+		p = p * 2.0 + shift;
+		a *= 0.5;
+	}
+	return v;
+}
+
+void vertex() {
+	float t = TIME * time_scale;
+	// Wave displacement on the top face (normal pointing up)
+	if (NORMAL.y > 0.5) {
+		float wave = fbm(VERTEX.xz * 0.15 + t * 0.3) * 1.5;
+		wave += sin(VERTEX.x * 0.5 + t * 2.0) * 0.3;
+		wave += cos(VERTEX.z * 0.4 + t * 1.5) * 0.3;
+		VERTEX.y += wave;
+	}
+}
+
+void fragment() {
+	float t = TIME * time_scale;
+	vec2 uv = UV;
+
+	// Only shade the top surface with full lava detail
+	if (NORMAL.y > 0.3) {
+		float n1 = fbm(uv * 6.0 + vec2(t * 0.2, t * 0.15));
+		float n2 = fbm(uv * 4.0 - vec2(t * 0.1, t * 0.25));
+		float combined = (n1 + n2) * 0.5 + 0.5;
+
+		vec3 hot = vec3(1.0, 0.85, 0.2);   // bright yellow
+		vec3 warm = vec3(1.0, 0.35, 0.05);  // orange
+		vec3 cool = vec3(0.6, 0.08, 0.02);  // dark red
+		vec3 crust = vec3(0.15, 0.04, 0.02); // near-black crust
+
+		vec3 col;
+		if (combined > 0.7) {
+			col = mix(warm, hot, (combined - 0.7) / 0.3);
+		} else if (combined > 0.4) {
+			col = mix(cool, warm, (combined - 0.4) / 0.3);
+		} else {
+			col = mix(crust, cool, combined / 0.4);
+		}
+
+		ALBEDO = col;
+		EMISSION = col * 2.5;
+	} else {
+		// Side walls – glowing orange
+		vec3 side_col = vec3(0.9, 0.25, 0.03);
+		ALBEDO = side_col;
+		EMISSION = side_col * 1.5;
+	}
+}
+"""
+	return shader
 
 ## -------------------------------------------------------------------------
 ## Split-screen setup
@@ -167,7 +354,7 @@ func _setup_split_screen() -> void:
 	_cam2.current = true
 	right_vp.add_child(_cam2)
 
-	## --- UI Overlay ---
+	## --- UI Overlay (added last so it renders on top) ---
 	var separator := ColorRect.new()
 	separator.color = Color.BLACK
 	separator.anchor_left = 0.5
@@ -176,7 +363,7 @@ func _setup_split_screen() -> void:
 	separator.offset_left = -2
 	separator.offset_right = 2
 	canvas.add_child(separator)
-	
+
 	_timer_label = Label.new()
 	_timer_label.anchor_left = 0.5
 	_timer_label.anchor_right = 0.5
@@ -189,6 +376,37 @@ func _setup_split_screen() -> void:
 	_timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_timer_label.add_theme_constant_override("outline_size", 8)
 	canvas.add_child(_timer_label)
+
+	## Grace period countdown label
+	_grace_label = Label.new()
+	_grace_label.anchor_left = 0.5
+	_grace_label.anchor_right = 0.5
+	_grace_label.anchor_top = 0.0
+	_grace_label.offset_top = 80
+	_grace_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_grace_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_grace_label.text = "LAVA IN %d" % ceili(grace_period)
+	_grace_label.add_theme_font_size_override("font_size", 36)
+	_grace_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.1))
+	_grace_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_grace_label.add_theme_constant_override("outline_size", 6)
+	canvas.add_child(_grace_label)
+
+	## Winner announcement label (hidden until game over)
+	_winner_label = Label.new()
+	_winner_label.anchor_left = 0.0
+	_winner_label.anchor_right = 1.0
+	_winner_label.anchor_top = 0.4
+	_winner_label.anchor_bottom = 0.6
+	_winner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_winner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_winner_label.text = ""
+	_winner_label.visible = false
+	_winner_label.add_theme_font_size_override("font_size", 72)
+	_winner_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
+	_winner_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_winner_label.add_theme_constant_override("outline_size", 10)
+	canvas.add_child(_winner_label)
 
 	## Initialise camera positions so the first frame isn't jarring.
 	if _player1:
