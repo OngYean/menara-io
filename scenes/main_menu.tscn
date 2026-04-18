@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cgahfto77a6q1"]
 
-[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_xk0ue"]
 [ext_resource type="LabelSettings" uid="uid://cw8axju3ncmhf" path="res://ui/styles/title_label_settings.tres" id="1_l6cm7"]
+[ext_resource type="Script" uid="uid://dn3immesejafn" path="res://scripts/main_menu.gd" id="1_xk0ue"]
 
 [node name="Control" type="Control" unique_id=1303100064]
 layout_mode = 3
@@ -21,14 +21,6 @@ offset_bottom = 252.0
 text = "Menara.io"
 label_settings = ExtResource("1_l6cm7")
 
-[node name="TextEdit" type="TextEdit" parent="." unique_id=1662151884]
-layout_mode = 0
-offset_left = 421.0
-offset_top = 294.0
-offset_right = 776.0
-offset_bottom = 359.0
-placeholder_text = "Enter your name..."
-
 [node name="SingleplayerButton" type="Button" parent="." unique_id=453123915]
 layout_mode = 0
 offset_left = 370.0
@@ -37,7 +29,7 @@ offset_right = 515.0
 offset_bottom = 492.0
 text = "Singleplayer"
 
-[node name="DuoButton" type="Button" parent="."]
+[node name="DuoButton" type="Button" parent="." unique_id=458870788]
 layout_mode = 0
 offset_left = 670.0
 offset_top = 424.0
@@ -45,3 +37,10 @@ offset_right = 815.0
 offset_bottom = 492.0
 text = "Duo"
 
+[node name="TutorialButton" type="Button" parent="." unique_id=1807781861]
+layout_mode = 0
+offset_left = 520.0
+offset_top = 514.0
+offset_right = 665.0
+offset_bottom = 582.0
+text = "Tutorial"
