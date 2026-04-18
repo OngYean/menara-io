@@ -63,6 +63,8 @@ var _p2_stun_label: Label
 var _p1_pointer: Polygon2D
 var _p2_pointer: Polygon2D
 
+var _game_over_ui: VBoxContainer
+
 ## UI State
 var _elapsed_time: float = 0.0
 var _is_duo: bool = false
@@ -385,9 +387,10 @@ func _kill_player(player_index: int) -> void:
 
 func _declare_winner(text: String) -> void:
 	_game_over = true
-	if _winner_label:
+	if _game_over_ui:
 		_winner_label.text = text
-		_winner_label.visible = true
+		_game_over_ui.visible = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _create_lava_shader() -> Shader:
 	var shader := Shader.new()
@@ -647,21 +650,46 @@ func _setup_screen() -> void:
 	_grace_label.add_theme_constant_override("outline_size", 6)
 	canvas.add_child(_grace_label)
 
-	## Winner announcement label (hidden until game over)
+	## --- Game Over UI ---
+	_game_over_ui = VBoxContainer.new()
+	_game_over_ui.anchor_left = 0.5
+	_game_over_ui.anchor_right = 0.5
+	_game_over_ui.anchor_top = 0.5
+	_game_over_ui.anchor_bottom = 0.5
+	_game_over_ui.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_game_over_ui.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_game_over_ui.add_theme_constant_override("separation", 30)
+	_game_over_ui.visible = false
+	canvas.add_child(_game_over_ui)
+
+	## Winner announcement label
 	_winner_label = Label.new()
-	_winner_label.anchor_left = 0.0
-	_winner_label.anchor_right = 1.0
-	_winner_label.anchor_top = 0.4
-	_winner_label.anchor_bottom = 0.6
 	_winner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_winner_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_winner_label.text = ""
-	_winner_label.visible = false
-	_winner_label.add_theme_font_size_override("font_size", 72)
+	_winner_label.text = "WINNER!"
+	_winner_label.add_theme_font_size_override("font_size", 84)
 	_winner_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.2))
 	_winner_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	_winner_label.add_theme_constant_override("outline_size", 10)
-	canvas.add_child(_winner_label)
+	_winner_label.add_theme_constant_override("outline_size", 12)
+	_game_over_ui.add_child(_winner_label)
+
+	var btn_hb := HBoxContainer.new()
+	btn_hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_hb.add_theme_constant_override("separation", 20)
+	_game_over_ui.add_child(btn_hb)
+
+	var restart_btn := Button.new()
+	restart_btn.text = "RESTART"
+	restart_btn.custom_minimum_size = Vector2(220, 70)
+	restart_btn.add_theme_font_size_override("font_size", 32)
+	restart_btn.pressed.connect(func(): get_tree().reload_current_scene())
+	btn_hb.add_child(restart_btn)
+
+	var menu_btn := Button.new()
+	menu_btn.text = "MAIN MENU"
+	menu_btn.custom_minimum_size = Vector2(220, 70)
+	menu_btn.add_theme_font_size_override("font_size", 32)
+	menu_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
+	btn_hb.add_child(menu_btn)
 
 	## Troll announcement label
 	_troll_label = Label.new()
