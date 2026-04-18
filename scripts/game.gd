@@ -29,6 +29,10 @@ var _tower_top_y: float = 0.0
 var _cam1: Camera3D
 var _cam2: Camera3D
 
+## UI State
+var _elapsed_time: float = 0.0
+var _timer_label: Label
+
 func _ready() -> void:
 	randomize()
 
@@ -59,6 +63,13 @@ func _ready() -> void:
 		_generator.generate_initial(start_y, start_y + 20.0)
 
 func _process(delta: float) -> void:
+	_elapsed_time += delta
+	if _timer_label:
+		var mins := int(_elapsed_time) / 60
+		var secs := int(_elapsed_time) % 60
+		var ms := int((_elapsed_time - int(_elapsed_time)) * 100)
+		_timer_label.text = "%02d:%02d.%02d" % [mins, secs, ms]
+
 	## Use the highest player Y for world extension logic.
 	var max_y: float = -INF
 	if _player1:
@@ -155,6 +166,29 @@ func _setup_split_screen() -> void:
 	_cam2.name = "Camera3D"
 	_cam2.current = true
 	right_vp.add_child(_cam2)
+
+	## --- UI Overlay ---
+	var separator := ColorRect.new()
+	separator.color = Color.BLACK
+	separator.anchor_left = 0.5
+	separator.anchor_right = 0.5
+	separator.anchor_bottom = 1.0
+	separator.offset_left = -2
+	separator.offset_right = 2
+	canvas.add_child(separator)
+	
+	_timer_label = Label.new()
+	_timer_label.anchor_left = 0.5
+	_timer_label.anchor_right = 0.5
+	_timer_label.offset_top = 20
+	_timer_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_timer_label.text = "00:00.00"
+	_timer_label.add_theme_font_size_override("font_size", 48)
+	_timer_label.add_theme_color_override("font_color", Color.WHITE)
+	_timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_timer_label.add_theme_constant_override("outline_size", 8)
+	canvas.add_child(_timer_label)
 
 	## Initialise camera positions so the first frame isn't jarring.
 	if _player1:
