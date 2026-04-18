@@ -29,6 +29,11 @@ var acceleration_scale: float = 1.0
 func _ready() -> void:
 	_ensure_input_actions()
 
+var _knockback: Vector3 = Vector3.ZERO
+
+func apply_knockback(force: Vector3) -> void:
+	_knockback += force
+
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
@@ -53,6 +58,10 @@ func _physics_process(delta: float) -> void:
 
 	velocity.x = move_toward(velocity.x, target_xz.x, acceleration * acceleration_scale * delta)
 	velocity.z = move_toward(velocity.z, target_xz.z, acceleration * acceleration_scale * delta)
+
+	if _knockback.length_squared() > 0.001:
+		velocity += _knockback
+		_knockback = Vector3.ZERO
 
 	move_and_slide()
 	_clamp_inside_tower()

@@ -26,7 +26,7 @@ var camera_shake_intensity: float = 0.0
 ## Troll settings
 @export var troll_start_time: float = 30.0
 @export var troll_interval: float = 15.0
-@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_moon_walking.gd")
+@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_raining_cats_and_dogs.gd")
 
 var _generator: Node3D
 var _player1: Node3D

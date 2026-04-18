@@ -68,5 +68,9 @@ void fragment() {
     // Calculate final alpha
     float alpha = smoothstep(0.3, 0.7, final_noise) * intensity * (0.3 + vignette * 0.5);
     
+    // Optional: make it denser at the top
+    float top_gradient = smoothstep(0.8, 0.0, UV.y);
+    alpha *= mix(1.0, top_gradient, 0.8);
+    
     COLOR = vec4(0.85, 0.9, 0.95, alpha);
 }
