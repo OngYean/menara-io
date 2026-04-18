@@ -139,6 +139,7 @@ key_move_left = 74
 key_move_right = 76
 key_jump = 73
 key_fall = 75
+player_color = Color(0.95, 0.45, 0.15, 1)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player2" unique_id=1637278733]
 shape = SubResource("CapsuleShape3D_player2")

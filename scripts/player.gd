@@ -21,6 +21,9 @@ extends CharacterBody3D
 @export var key_jump: Key = KEY_W
 @export var key_fall: Key = KEY_S
 
+## Player color – used to tint the Scotty model.
+@export var player_color: Color = Color(0.2, 0.7, 0.95, 1.0)
+
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var fall_disabled: bool = false
 var wind_force: float = 0.0
@@ -35,6 +38,10 @@ var _plunge_accel: float = 200.0
 var fly_timer: float = 0.0
 var _fly_sfx: AudioStreamPlayer
 
+## Model references
+var _model: Node3D
+var _anim_player: AnimationPlayer
+
 func _ready() -> void:
 	scale = Vector3(1.5, 1.5, 1.5)
 	
@@ -43,6 +50,7 @@ func _ready() -> void:
 	_fly_sfx.bus = &"Master"
 	add_child(_fly_sfx)
 	
+	_setup_scotty_model()
 	_ensure_input_actions()
 
 signal inventory_changed
@@ -140,6 +148,21 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_clamp_inside_tower()
 
+	## --- Face model toward movement direction ---
+	if _model:
+		var flat_vel := Vector2(velocity.x, velocity.z)
+		if flat_vel.length_squared() > 1.0:
+			var target_angle := atan2(flat_vel.x, flat_vel.y)
+			_model.rotation.y = lerp_angle(_model.rotation.y, target_angle, 12.0 * delta)
+		
+		## Play/pause walk animation based on movement
+		if _anim_player:
+			if flat_vel.length_squared() > 1.0 and is_on_floor():
+				if not _anim_player.is_playing():
+					_anim_player.play("ArmatureAction")
+			elif _anim_player.is_playing() and _anim_player.current_animation == "ArmatureAction" and is_on_floor():
+				_anim_player.stop()
+
 	## --- Plunge attack: check collisions with other players ---
 	for i in get_slide_collision_count():
 		var col = get_slide_collision(i)
@@ -188,6 +211,60 @@ func _play_jump_sfx() -> void:
 	add_child(sfx)
 	sfx.play()
 	sfx.finished.connect(sfx.queue_free)
+
+func _setup_scotty_model() -> void:
+	## Remove the old capsule MeshInstance3D.
+	for child in get_children():
+		if child is MeshInstance3D:
+			child.queue_free()
+	
+	## Instantiate the Scotty model.
+	var scotty_scene := preload("res://assets/Scotty.blend")
+	_model = scotty_scene.instantiate()
+	_model.name = "ScottyModel"
+	
+	## Remove the camera and lamp from the imported scene – we have our own.
+	for child in _model.get_children():
+		if child is Camera3D or child.name == "BezierCircle" or child.name == "Lamp":
+			child.queue_free()
+	
+	## Scale the model to fit the player collision shape.
+	## The Scotty model is roughly 14 units tall; capsule is 1.2 units.
+	_model.scale = Vector3(0.35, 0.15, 0.35)
+	_model.position = Vector3(0, -0.6, 0)  ## Offset so feet align with collision bottom
+	
+	add_child(_model)
+	
+	## Find the AnimationPlayer in the imported scene.
+	_anim_player = _find_node_by_type(_model, "AnimationPlayer") as AnimationPlayer
+	if _anim_player:
+		_anim_player.active = true
+	
+	## Apply player color to the "Bois" (body) material on all mesh instances.
+	_apply_color_to_model(_model, player_color)
+
+func _apply_color_to_model(node: Node, color: Color) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		for surface_idx in mi.mesh.get_surface_count():
+			var mat = mi.mesh.surface_get_material(surface_idx)
+			if mat and mat is StandardMaterial3D:
+				var mat_name = mat.resource_name
+				if mat_name == "Bois":
+					var new_mat := mat.duplicate() as StandardMaterial3D
+					new_mat.albedo_color = color
+					mi.set_surface_override_material(surface_idx, new_mat)
+	for child in node.get_children():
+		_apply_color_to_model(child, color)
+
+func _find_node_by_type(root: Node, type_name: String) -> Node:
+	if root.get_class() == type_name:
+		return root
+	for child in root.get_children():
+		var found = _find_node_by_type(child, type_name)
+		if found:
+			return found
+	return null
 
 func _ensure_input_actions() -> void:
 	_add_action_key_if_missing(action_move_left, key_move_left)
