@@ -30,8 +30,8 @@ var wind_force: float = 0.0
 var acceleration_scale: float = 1.0
 
 ## Plunge attack / stun state
-var _stun_timer: float = 0.0
-var _is_stunned: bool = false
+var stun_timer: float = 0.0
+var is_stunned: bool = false
 var _plunge_accel: float = 200.0
 
 ## Fly state
@@ -81,11 +81,22 @@ func pickup_powerup(powerup_script: GDScript) -> void:
 
 func _physics_process(delta: float) -> void:
 	## --- Stun countdown ---
-	if _is_stunned:
-		_stun_timer -= delta
-		if _stun_timer <= 0.0:
-			_is_stunned = false
-			_stun_timer = 0.0
+	if is_stunned:
+		stun_timer -= delta
+		
+		## --- Shake and label logic ---
+		if _model:
+			var shake_offset := Vector3(
+				randf_range(-0.05, 0.05),
+				0.0,
+				randf_range(-0.05, 0.05)
+			)
+			_model.position = Vector3(0, -0.6, 0) + shake_offset
+		
+		if stun_timer <= 0.0:
+			is_stunned = false
+			stun_timer = 0.0
+			if _model: _model.position = Vector3(0, -0.6, 0)
 
 	## --- Fly countdown ---
 	if fly_timer > 0.0:
@@ -95,10 +106,10 @@ func _physics_process(delta: float) -> void:
 
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
-		if not _is_stunned and not fall_disabled and Input.is_action_pressed(action_fall):
+		if not is_stunned and not fall_disabled and Input.is_action_pressed(action_fall):
 			velocity.y -= 120.0 * delta
 
-	if not _is_stunned:
+	if not is_stunned:
 		if fly_timer > 0.0:
 			if Input.is_action_pressed(action_jump):
 				velocity.y += 60.0 * delta
@@ -124,7 +135,7 @@ func _physics_process(delta: float) -> void:
 							break
 
 	var turn_input: float = 0.0
-	if not _is_stunned:
+	if not is_stunned:
 		turn_input = Input.get_action_strength(action_move_right) - Input.get_action_strength(action_move_left)
 
 	## Tangent direction: perpendicular to the outward radial, so the player
@@ -169,7 +180,7 @@ func _physics_process(delta: float) -> void:
 		var collider = col.get_collider()
 		if collider is CharacterBody3D and collider != self and collider.has_method("receive_plunge"):
 			# Attacker must be holding the fall key and coming from above
-			if not _is_stunned and Input.is_action_pressed(action_fall) and global_position.y > collider.global_position.y:
+			if not is_stunned and Input.is_action_pressed(action_fall) and global_position.y > collider.global_position.y:
 				collider.receive_plunge()
 
 	if is_on_floor():
@@ -181,12 +192,12 @@ func _physics_process(delta: float) -> void:
 					collider.on_stepped()
 
 func receive_plunge() -> void:
-	if _is_stunned:
+	if is_stunned:
 		return  # Already stunned, don't stack
 	if is_on_floor():
 		# Grounded: stun for 3 seconds
-		_is_stunned = true
-		_stun_timer = 3.0
+		is_stunned = true
+		stun_timer = 3.0
 		velocity = Vector3.ZERO
 	else:
 		# Airborne: slam downward

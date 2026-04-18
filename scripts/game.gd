@@ -55,6 +55,11 @@ var _p1_fly_label: Label
 var _p2_fly_ui: HBoxContainer
 var _p2_fly_label: Label
 
+var _p1_stun_ui: CenterContainer
+var _p1_stun_label: Label
+var _p2_stun_ui: CenterContainer
+var _p2_stun_label: Label
+
 var _p1_pointer: Polygon2D
 var _p2_pointer: Polygon2D
 
@@ -209,6 +214,20 @@ func _process(delta: float) -> void:
 		if left_cont and right_cont:
 			_update_player_pointer(_cam1, _player2, _p1_pointer, left_cont.size)
 			_update_player_pointer(_cam2, _player1, _p2_pointer, right_cont.size)
+
+	if _player1 and _p1_stun_ui:
+		if _player1.is_stunned:
+			_p1_stun_ui.visible = true
+			_p1_stun_label.text = "STUNNED! %.1fs" % _player1.stun_timer
+		else:
+			_p1_stun_ui.visible = false
+
+	if _is_duo and _player2 and _p2_stun_ui:
+		if _player2.is_stunned:
+			_p2_stun_ui.visible = true
+			_p2_stun_label.text = "STUNNED! %.1fs" % _player2.stun_timer
+		else:
+			_p2_stun_ui.visible = false
 
 	## --- Troll Logic ------------------------------------------------------
 	if _elapsed_time >= _next_troll_time and not _game_over:
@@ -514,6 +533,10 @@ func _setup_screen() -> void:
 	_p1_fly_ui.position = Vector2(20, 120)
 	left_container.add_child(_p1_fly_ui)
 
+	_p1_stun_ui = _create_stun_ui()
+	_p1_stun_label = _p1_stun_ui.get_node("Label")
+	left_container.add_child(_p1_stun_ui)
+
 	if _is_duo:
 		_p1_pointer = Polygon2D.new()
 		_p1_pointer.polygon = PackedVector2Array([Vector2(-12, -10), Vector2(16, 0), Vector2(-12, 10)])
@@ -565,6 +588,10 @@ func _setup_screen() -> void:
 		_p2_fly_ui.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 		_p2_fly_ui.position = Vector2(-150, 120)
 		right_container.add_child(_p2_fly_ui)
+
+		_p2_stun_ui = _create_stun_ui()
+		_p2_stun_label = _p2_stun_ui.get_node("Label")
+		right_container.add_child(_p2_stun_ui)
 
 		_p2_pointer = Polygon2D.new()
 		_p2_pointer.polygon = PackedVector2Array([Vector2(-12, -10), Vector2(16, 0), Vector2(-12, 10)])
@@ -816,3 +843,25 @@ func _update_player_pointer(cam: Camera3D, target: Node3D, pointer: Polygon2D, v
 	else:
 		pointer.position = clamped_pos
 		pointer.rotation = dir.angle()
+
+func _create_stun_ui() -> CenterContainer:
+	var cc := CenterContainer.new()
+	# Span the full width and center at the top
+	cc.anchor_left = 0.0
+	cc.anchor_right = 1.0
+	cc.anchor_top = 0.0
+	cc.anchor_bottom = 0.0
+	cc.offset_top = 40
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.visible = false
+	
+	var label := Label.new()
+	label.name = "Label"
+	label.add_theme_font_size_override("font_size", 48)
+	label.add_theme_color_override("font_color", Color.YELLOW)
+	label.add_theme_constant_override("outline_size", 8)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.text = "STUNNED!"
+	cc.add_child(label)
+	
+	return cc
