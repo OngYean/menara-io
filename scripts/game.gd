@@ -18,7 +18,7 @@ var camera_shake_intensity: float = 0.0
 
 ## Lava settings.
 @export var grace_period: float = 15.0
-@export var lava_rise_speed: float = 4.0
+@export var lava_rise_speed: float = 3.0
 @export var lava_start_y: float = -10.0
 @export var lava_radius: float = 29.5
 @export var lava_column_height: float = 400.0
@@ -26,7 +26,7 @@ var camera_shake_intensity: float = 0.0
 ## Troll settings
 @export var troll_start_time: float = 30.0
 @export var troll_interval: float = 15.0
-@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_short_sightedness.gd")
+@export var forced_first_troll: GDScript = preload("res://scripts/trolls/troll_wind.gd")
 
 var _generator: Node3D
 var _player1: Node3D
@@ -41,6 +41,10 @@ var _tower_top_y: float = 0.0
 ## Split-screen cameras (created in code inside SubViewports).
 var _cam1: Camera3D
 var _cam2: Camera3D
+var _p1_blur: ColorRect
+var _p2_blur: ColorRect
+var _p1_clouds: ColorRect
+var _p2_clouds: ColorRect
 
 ## UI State
 var _elapsed_time: float = 0.0
@@ -435,6 +439,12 @@ func _setup_screen() -> void:
 	_cam1.current = true
 	left_vp.add_child(_cam1)
 
+	_p1_blur = _create_blur_overlay()
+	left_vp.add_child(_p1_blur)
+	
+	_p1_clouds = _create_cloud_overlay()
+	left_vp.add_child(_p1_clouds)
+
 	if is_duo:
 		## --- Right half (Player 2) ---
 		var right_container := SubViewportContainer.new()
@@ -460,6 +470,12 @@ func _setup_screen() -> void:
 		_cam2.name = "Camera3D"
 		_cam2.current = true
 		right_vp.add_child(_cam2)
+
+		_p2_blur = _create_blur_overlay()
+		right_vp.add_child(_p2_blur)
+		
+		_p2_clouds = _create_cloud_overlay()
+		right_vp.add_child(_p2_clouds)
 
 	## --- UI Overlay (added last so it renders on top) ---
 	if is_duo:
@@ -592,3 +608,21 @@ func _update_camera(cam: Camera3D, player: Node3D, delta: float) -> void:
 	else:
 		cam.h_offset = 0.0
 		cam.v_offset = 0.0
+
+func _create_blur_overlay() -> ColorRect:
+	var cr := ColorRect.new()
+	cr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/vignette_blur.gdshader")
+	cr.material = mat
+	return cr
+
+func _create_cloud_overlay() -> ColorRect:
+	var cr := ColorRect.new()
+	cr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/cloud_filter.gdshader")
+	cr.material = mat
+	return cr
