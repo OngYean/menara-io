@@ -174,7 +174,13 @@ func _spawn_powerup_on_platform(platform: StaticBody3D, inner_r: float, outer_r:
 	area.position = Vector3(px, platform_thickness + 0.75, pz)
 	platform.add_child(area)
 	
-	area.setup(PowerupManager.get_random_powerup())
+	var p_script = PowerupManager.get_random_powerup()
+	if not get_parent().lava_active:
+		var inst = p_script.new()
+		if inst.has_method("get_powerup_name") and inst.get_powerup_name() == "FLASHBANG":
+			return # Don't spawn flashbang during grace period
+	
+	area.setup(p_script)
 
 ## -------------------------------------------------------------------------
 ## Mesh helpers (unchanged)

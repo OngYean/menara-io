@@ -81,7 +81,7 @@ var _p2_dist_label: Label
 ## Lava state
 var _lava_mesh: MeshInstance3D
 var _lava_y: float = -10.0
-var _lava_active: bool = false
+var lava_active: bool = false
 var _game_over: bool = false
 var _p1_alive: bool = true
 var _p2_alive: bool = true
@@ -169,25 +169,25 @@ func _process(delta: float) -> void:
 
 	## --- Grace period & Troll countdown -------------------------------------
 	if _grace_label:
-		if not _lava_active:
+		if not lava_active:
 			var remaining := grace_period - _elapsed_time
 			if remaining <= 0.0:
-				_lava_active = true
+				lava_active = true
 			else:
 				_grace_label.text = "LAVA IN %d" % ceili(remaining)
 		
-		if _lava_active:
+		if lava_active:
 			var remaining_troll := _next_troll_time - _elapsed_time
 			_grace_label.text = "NEXT TROLL IN %d" % maxf(0.0, ceili(remaining_troll))
 
 	## --- Lava rising ------------------------------------------------------
-	if _lava_active:
+	if lava_active:
 		_lava_y += lava_rise_speed * delta
 		_update_lava_position()
 		_check_lava_kills()
 
 	## --- Distance Overlay ---
-	if _p1_dist_label and _p1_alive and _player1 and _lava_active:
+	if _p1_dist_label and _p1_alive and _player1 and lava_active:
 		var dist = maxf(0.0, _player1.global_position.y - _lava_y)
 		_p1_dist_label.text = "↓ %.1fm" % dist
 		_p1_dist_label.visible = true
@@ -201,7 +201,7 @@ func _process(delta: float) -> void:
 		else:
 			_p1_fly_ui.visible = false
 		
-	if _p2_dist_label and _p2_alive and _player2 and _lava_active:
+	if _p2_dist_label and _p2_alive and _player2 and lava_active:
 		var dist = maxf(0.0, _player2.global_position.y - _lava_y)
 		_p2_dist_label.text = "↓ %.1fm" % dist
 		_p2_dist_label.visible = true

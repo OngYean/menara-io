@@ -197,6 +197,8 @@ func _physics_process(delta: float) -> void:
 					collider.on_stepped()
 
 func receive_plunge() -> void:
+	if not get_parent().lava_active:
+		return
 	if is_stunned:
 		return  # Already stunned, don't stack
 	if is_on_floor():
