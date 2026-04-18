@@ -8,7 +8,7 @@ var _physics_mat: PhysicsMaterial
 
 func start() -> void:
 	_physics_mat = PhysicsMaterial.new()
-	_physics_mat.bounce = 0.8
+	_physics_mat.bounce = 1.1
 	_physics_mat.friction = 0.1
 	
 	if game._p1_clouds:
