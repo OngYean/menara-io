@@ -31,7 +31,18 @@ var _stun_timer: float = 0.0
 var _is_stunned: bool = false
 var _plunge_accel: float = 200.0
 
+## Fly state
+var fly_timer: float = 0.0
+var _fly_sfx: AudioStreamPlayer
+
 func _ready() -> void:
+	scale = Vector3(1.5, 1.5, 1.5)
+	
+	_fly_sfx = AudioStreamPlayer.new()
+	_fly_sfx.stream = preload("res://assets/sfx_fly.ogg")
+	_fly_sfx.bus = &"Master"
+	add_child(_fly_sfx)
+	
 	_ensure_input_actions()
 
 signal inventory_changed
@@ -50,6 +61,12 @@ func pickup_powerup(powerup_script: GDScript) -> void:
 	sfx.play()
 	sfx.finished.connect(sfx.queue_free)
 
+	var inst = powerup_script.new()
+	if inst.has_method("get_powerup_name") and inst.get_powerup_name() == "FLY":
+		fly_timer = 5.0
+		print("Picked up FLY! Timer set to 5.0")
+		return
+
 	inventory.append(powerup_script)
 	inventory_changed.emit()
 	print("Picked up powerup! Inventory size: ", inventory.size())
@@ -62,26 +79,41 @@ func _physics_process(delta: float) -> void:
 			_is_stunned = false
 			_stun_timer = 0.0
 
+	## --- Fly countdown ---
+	if fly_timer > 0.0:
+		fly_timer -= delta
+		if fly_timer <= 0.0 and _fly_sfx.playing:
+			_fly_sfx.stop()
+
 	if not is_on_floor():
 		velocity.y -= _gravity * gravity_scale * delta
 		if not _is_stunned and not fall_disabled and Input.is_action_pressed(action_fall):
 			velocity.y -= 120.0 * delta
 
 	if not _is_stunned:
-		if Input.is_action_just_pressed(action_jump):
-			if is_on_floor():
-				velocity.y = jump_velocity
-				_play_jump_sfx()
+		if fly_timer > 0.0:
+			if Input.is_action_pressed(action_jump):
+				velocity.y += 60.0 * delta
+				if not _fly_sfx.playing:
+					_fly_sfx.play()
 			else:
-				# Check for double jump in inventory
-				for i in range(inventory.size()):
-					var inst = inventory[i].new()
-					if inst.get_powerup_name() == "DOUBLE JUMP":
-						velocity.y = jump_velocity
-						_play_jump_sfx()
-						inventory.remove_at(i)
-						inventory_changed.emit()
-						break
+				if _fly_sfx.playing:
+					_fly_sfx.stop()
+		else:
+			if Input.is_action_just_pressed(action_jump):
+				if is_on_floor():
+					velocity.y = jump_velocity
+					_play_jump_sfx()
+				else:
+					# Check for double jump in inventory
+					for i in range(inventory.size()):
+						var inst = inventory[i].new()
+						if inst.get_powerup_name() == "DOUBLE JUMP":
+							velocity.y = jump_velocity
+							_play_jump_sfx()
+							inventory.remove_at(i)
+							inventory_changed.emit()
+							break
 
 	var turn_input: float = 0.0
 	if not _is_stunned:

@@ -18,7 +18,7 @@ var camera_shake_intensity: float = 0.0
 
 ## Lava settings.
 @export var grace_period: float = 15.0
-@export var lava_rise_speed: float = 3.0
+@export var lava_rise_speed: float = 6.0
 @export var lava_start_y: float = -10.0
 @export var lava_radius: float = 29.5
 @export var lava_column_height: float = 400.0
@@ -50,8 +50,14 @@ var _p2_film: ColorRect
 var _p1_inventory_ui: VBoxContainer
 var _p2_inventory_ui: VBoxContainer
 
+var _p1_fly_ui: HBoxContainer
+var _p1_fly_label: Label
+var _p2_fly_ui: HBoxContainer
+var _p2_fly_label: Label
+
 ## UI State
 var _elapsed_time: float = 0.0
+var _is_duo: bool = false
 var _timer_label: Label
 var _winner_label: Label
 var _grace_label: Label
@@ -76,8 +82,10 @@ var _troll_label: Label
 func _ready() -> void:
 	randomize()
 	
-	PowerupManager.is_duo_mode = get_node("/root/Global").game_mode != "singleplayer"
+	_is_duo = get_node("/root/Global").game_mode == "duo"
+	PowerupManager.is_duo_mode = _is_duo
 	PowerupManager.register_powerup(preload("res://scripts/powerups/powerup_double_jump.gd"))
+	PowerupManager.register_powerup(preload("res://scripts/powerups/powerup_fly.gd"))
 	
 	var bgm := AudioStreamPlayer.new()
 	bgm.stream = preload("res://assets/menara-io-bgm.ogg")
@@ -171,12 +179,26 @@ func _process(delta: float) -> void:
 	elif _p1_dist_label:
 		_p1_dist_label.visible = false
 		
+	if _p1_alive and _player1 and _p1_fly_ui:
+		if _player1.fly_timer > 0.0:
+			_p1_fly_ui.visible = true
+			_p1_fly_label.text = "%.1f" % _player1.fly_timer
+		else:
+			_p1_fly_ui.visible = false
+		
 	if _p2_dist_label and _p2_alive and _player2 and _lava_active:
 		var dist = maxf(0.0, _player2.global_position.y - _lava_y)
 		_p2_dist_label.text = "↓ %.1fm" % dist
 		_p2_dist_label.visible = true
 	elif _p2_dist_label:
 		_p2_dist_label.visible = false
+		
+	if _is_duo and _p2_alive and _player2 and _p2_fly_ui:
+		if _player2.fly_timer > 0.0:
+			_p2_fly_ui.visible = true
+			_p2_fly_label.text = "%.1f" % _player2.fly_timer
+		else:
+			_p2_fly_ui.visible = false
 
 	## --- Troll Logic ------------------------------------------------------
 	if _elapsed_time >= _next_troll_time and not _game_over:
@@ -477,7 +499,12 @@ func _setup_screen() -> void:
 	_p1_inventory_ui.alignment = BoxContainer.ALIGNMENT_CENTER
 	left_container.add_child(_p1_inventory_ui)
 
-	if is_duo:
+	_p1_fly_ui = _create_fly_ui()
+	_p1_fly_label = _p1_fly_ui.get_child(1) as Label
+	_p1_fly_ui.position = Vector2(20, 120)
+	left_container.add_child(_p1_fly_ui)
+
+	if _is_duo:
 		## --- Right half (Player 2) ---
 		var right_container := SubViewportContainer.new()
 		right_container.name = "RightView"
@@ -518,8 +545,14 @@ func _setup_screen() -> void:
 		_p2_inventory_ui.alignment = BoxContainer.ALIGNMENT_CENTER
 		right_container.add_child(_p2_inventory_ui)
 
+		_p2_fly_ui = _create_fly_ui()
+		_p2_fly_label = _p2_fly_ui.get_child(1) as Label
+		_p2_fly_ui.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		_p2_fly_ui.position = Vector2(-150, 120)
+		right_container.add_child(_p2_fly_ui)
+
 	## --- UI Overlay (added last so it renders on top) ---
-	if is_duo:
+	if _is_duo:
 		var separator := ColorRect.new()
 		separator.color = Color.BLACK
 		separator.anchor_left = 0.5
@@ -603,8 +636,8 @@ func _setup_screen() -> void:
 	_p1_dist_label = Label.new()
 	_p1_dist_label.anchor_top = 1.0
 	_p1_dist_label.anchor_bottom = 1.0
-	_p1_dist_label.anchor_left = 0.5 if not is_duo else 0.25
-	_p1_dist_label.anchor_right = 0.5 if not is_duo else 0.25
+	_p1_dist_label.anchor_left = 0.5 if not _is_duo else 0.25
+	_p1_dist_label.anchor_right = 0.5 if not _is_duo else 0.25
 	_p1_dist_label.offset_top = -60
 	_p1_dist_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_p1_dist_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -614,7 +647,7 @@ func _setup_screen() -> void:
 	_p1_dist_label.add_theme_constant_override("outline_size", 6)
 	canvas.add_child(_p1_dist_label)
 
-	if is_duo:
+	if _is_duo:
 		_p2_dist_label = Label.new()
 		_p2_dist_label.anchor_top = 1.0
 		_p2_dist_label.anchor_bottom = 1.0
@@ -701,7 +734,28 @@ func _update_inventory_ui(player: Node3D, container: VBoxContainer) -> void:
 		var inst = script.new()
 		var rect = TextureRect.new()
 		rect.texture = inst.get_icon()
-		rect.custom_minimum_size = Vector2(80, 80)
+		rect.custom_minimum_size = Vector2(40, 40)
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		container.add_child(rect)
+
+func _create_fly_ui() -> HBoxContainer:
+	var hb := HBoxContainer.new()
+	hb.visible = false
+	
+	var rect := TextureRect.new()
+	rect.texture = preload("res://assets/powerup_fly.png")
+	rect.custom_minimum_size = Vector2(30, 30)
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hb.add_child(rect)
+	
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", 32)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.text = "7.0"
+	hb.add_child(label)
+	
+	return hb

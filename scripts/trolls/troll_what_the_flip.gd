@@ -38,10 +38,6 @@ func _flip_world() -> void:
 		for child in game._generator.get_children():
 			if child is StaticBody3D:
 				_nodes_to_flip.append(child)
-				## Despawn any powerup pickups on this platform to add to the chaos.
-				for grandchild in child.get_children():
-					if grandchild is Area3D:
-						grandchild.queue_free()
 
 	## 4. Record start states
 	for node in _nodes_to_flip:
@@ -49,10 +45,10 @@ func _flip_world() -> void:
 		var sr = node.rotation.x
 		_start_states.append({"y": sy, "rot_x": sr})
 
-	## 5. Animate a full 360 degree spin over 12 seconds with screen shake
+	## 5. Animate a full 360 degree spin over 5 seconds with screen shake
 	game.camera_shake_intensity = 3.0
 	var tw := game.create_tween()
-	tw.tween_method(_animate_flip, 0.0, 1.0, 12.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_method(_animate_flip, 0.0, 1.0, 5.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_callback(func():
 		game.camera_shake_intensity = 0.0
 		
